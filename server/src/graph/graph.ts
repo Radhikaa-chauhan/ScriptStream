@@ -1,15 +1,15 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { StateAnnotation } from "./state";
 import { visionNode } from "./nodes/visionNode";
+import { ragLookupNode } from "./nodes/ragLookupNode";
 import { safetyNode } from "./nodes/safetyNode";
 import { scheduleNode } from "./nodes/scheduleNode";
+import { notifyNode } from "./nodes/notifyNode";
 import { chatNode } from "./nodes/chatNode";
-
-// Note: ragLookupNode and notifyNode will be implemented by Member 4
 
 
 /**
- * The MediScript AI Workflow
+ * The ScriptStream AI Workflow
  * 7-Node State Machine
  */
 const workflow = new StateGraph(StateAnnotation)
@@ -22,10 +22,8 @@ const workflow = new StateGraph(StateAnnotation)
     return { status: "ready_for_analysis" };
   })
 
-  // 3. RAG Lookup Node (Placeholder for Member 4's logic)
-  .addNode("ragLookup", async (state) => {
-    return { status: "rag_complete", ragContext: "Sample medical literature fetched from ChromaDB." };
-  })
+  // 3. RAG Lookup Node (Member 4)
+  .addNode("ragLookup", ragLookupNode)
 
   // 4. Safety Node
   .addNode("safety", safetyNode)
@@ -33,10 +31,8 @@ const workflow = new StateGraph(StateAnnotation)
   // 5. Schedule Node
   .addNode("schedule", scheduleNode)
 
-  // 6. Notification Node (Placeholder for Member 4's n8n logic)
-  .addNode("notify", async (state) => {
-    return { status: "notified" };
-  })
+  // 6. Notification Node (Member 4)
+  .addNode("notify", notifyNode)
 
   // 7. Chat Node
   .addNode("chat", chatNode)

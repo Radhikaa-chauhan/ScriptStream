@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { connectDB } from "./src/database/db";
 import apiRoutes from "./src/api/routes";
 import { initSockets } from "./src/sockets/socketEvents";
+import { ingestDrugs } from "./src/rag/drugDatabase";
 
 dotenv.config();
 
@@ -35,8 +36,16 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB(); // Ensure MongoDB URI is in .env
+
+    // Bootstrap ChromaDB drug database (idempotent — skips if already seeded)
+    try {
+      await ingestDrugs();
+    } catch (ragError) {
+      console.warn("[Server] ChromaDB bootstrap failed. RAG will work in degraded mode:", ragError);
+    }
+
     server.listen(PORT, () => {
-      console.log(`MediScript Server running on port ${PORT}`);
+      console.log(`ScriptStream Server running on port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

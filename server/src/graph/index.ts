@@ -2,7 +2,7 @@ import { graph } from "./graph";
 import { State } from "./state";
 
 /**
- * Entry point for the MediScript LangGraph Workflow.
+ * Entry point for the ScriptStream LangGraph Workflow.
  * Member 2 (Backend) will call this function from their Express route.
  * 
  * @param imageBase64 The raw prescription image data (base64 string)
