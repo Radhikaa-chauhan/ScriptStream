@@ -1,5 +1,5 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-import { State } from "../state";
+import { anthropic, withRetry } from "../../utils/anthropic";
+import { State, ScheduleSchema } from "../state";
 import { emitStatus } from "../../../server";
 
 /**
@@ -8,10 +8,6 @@ import { emitStatus } from "../../../server";
  * daily schedule (Morning, Afternoon, Evening, Night).
  */
 export const scheduleNode = async (state: State) => {
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-
   emitStatus("processing", "Scheduling Agent: Generating daily medication schedule...");
 
   if (!state.extractedData || state.extractedData.medications.length === 0) {
@@ -24,60 +20,59 @@ export const scheduleNode = async (state: State) => {
 
   const medsData = JSON.stringify(state.extractedData.medications, null, 2);
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20240620",
-    max_tokens: 1500,
-    system: `You are an expert medical scheduler AI.
-    Your task is to take raw medication instructions and map them to a rigid 4-part daily schedule.
-    
-    CRITICAL RULES:
-    1. Output ONLY valid JSON.
-    2. Do NOT include any conversational text or markdown fences.
-    3. Interpret medical abbreviations (e.g., BID = twice a day -> Morning & Evening).
-    4. Group medications accurately into the right time slots. Include dosage.
-    
-    JSON Schema:
-    {
-      "morning": [ "string" ],
-      "afternoon": [ "string" ],
-      "evening": [ "string" ],
-      "night": [ "string" ],
-      "notes": [ "string" ]
-    }
-    
-    Example Output:
-    {
-      "morning": ["Lisinopril 10mg - Take with food"],
-      "afternoon": [],
-      "evening": ["Lisinopril 10mg - Take with food", "Atorvastatin 20mg"],
-      "night": [],
-      "notes": ["Take Lisinopril with a full glass of water."]
-    }`,
-    messages: [
-      {
-        role: "user",
-        content: `Medications to schedule:\n${medsData}\n\nGenerate the JSON schedule.`,
+  const toolDefinition = {
+    name: "generate_medication_schedule",
+    description: "Map medication instructions to a 4-part daily schedule.",
+    input_schema: {
+      type: "object",
+      properties: {
+        morning: { type: "array", items: { type: "string" }, description: "Meds to take in the morning" },
+        afternoon: { type: "array", items: { type: "string" }, description: "Meds to take in the afternoon" },
+        evening: { type: "array", items: { type: "string" }, description: "Meds to take in the evening" },
+        night: { type: "array", items: { type: "string" }, description: "Meds to take at night" },
+        notes: { type: "array", items: { type: "string" }, description: "Important safety notes or instructions" }
       },
-    ],
-  });
+      required: ["morning", "afternoon", "evening", "night", "notes"]
+    }
+  };
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Scheduling Agent");
-  }
+  const runScheduleAgent = async () => {
+    return await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20240620",
+      max_tokens: 1500,
+      system: "You are an expert medical scheduler AI. Map raw instructions to the daily schedule using the generate_medication_schedule tool. Interpret abbreviations like BID (twice daily).",
+      tools: [toolDefinition as any],
+      tool_choice: { type: "tool", name: "generate_medication_schedule" },
+      messages: [
+        {
+          role: "user",
+          content: `Medications to schedule:\n${medsData}\n\nGenerate the structured schedule.`,
+        },
+      ],
+    });
+  };
 
   try {
-    const schedule = JSON.parse(content.text);
+    const response = await withRetry(runScheduleAgent);
+    
+    const toolUse = response.content.find((c: any) => c.type === "tool_use") as any;
+    
+    if (!toolUse) {
+      throw new Error("Scheduling Agent failed to use the schedule tool.");
+    }
+
+    // Validate with Zod
+    const schedule = ScheduleSchema.parse(toolUse.input);
     
     emitStatus("success", "Scheduling Agent: Daily schedule finalized.");
     
     return {
       schedule,
-      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete."],
+      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete with Tool Calling."],
       status: "schedule_complete"
     };
-  } catch (error) {
-    emitStatus("error", "Scheduling Agent: Failed to parse schedule result.");
-    throw new Error("Failed to parse JSON from Scheduling Agent");
+  } catch (error: any) {
+    emitStatus("error", `Scheduling Agent: ${error.message || "Failed to generate schedule."}`);
+    throw error;
   }
 };
