@@ -1,0 +1,304 @@
+{
+  "drugs": [
+    {
+      "name": "Metformin",
+      "brandNames": ["Glucophage", "Fortamet", "Riomet"],
+      "category": "Biguanide (Antidiabetic)",
+      "sideEffects": ["Nausea", "Diarrhea", "Stomach pain", "Metallic taste", "Vitamin B12 deficiency with long-term use"],
+      "interactions": [
+        { "drug": "Alcohol", "severity": "major", "description": "Increases risk of lactic acidosis, a rare but life-threatening condition." },
+        { "drug": "Ibuprofen", "severity": "moderate", "description": "NSAIDs may impair renal function, reducing Metformin clearance." },
+        { "drug": "Lisinopril", "severity": "minor", "description": "ACE inhibitors may enhance the hypoglycemic effect. Monitor blood glucose." },
+        { "drug": "Contrast Dye", "severity": "major", "description": "Must be discontinued 48 hours before and after iodinated contrast procedures." }
+      ],
+      "dosageInfo": { "standard": "500mg twice daily", "max": "2550mg per day", "frequency": "With meals" },
+      "warnings": ["Contraindicated in severe renal impairment (eGFR < 30)", "Risk of lactic acidosis in dehydration", "Hold before surgical procedures"],
+      "foodInteractions": ["Alcohol increases lactic acidosis risk", "Take with food to reduce GI side effects"]
+    },
+    {
+      "name": "Lisinopril",
+      "brandNames": ["Prinivil", "Zestril"],
+      "category": "ACE Inhibitor (Antihypertensive)",
+      "sideEffects": ["Dry cough", "Dizziness", "Headache", "Hyperkalemia", "Angioedema (rare)"],
+      "interactions": [
+        { "drug": "Potassium supplements", "severity": "major", "description": "Can cause dangerous hyperkalemia (elevated potassium)." },
+        { "drug": "Ibuprofen", "severity": "moderate", "description": "NSAIDs reduce antihypertensive effect and increase renal risk." },
+        { "drug": "Metformin", "severity": "minor", "description": "May enhance hypoglycemic effect. Monitor blood glucose." },
+        { "drug": "Spironolactone", "severity": "major", "description": "Both increase potassium levels. High risk of hyperkalemia." }
+      ],
+      "dosageInfo": { "standard": "10mg once daily", "max": "40mg per day", "frequency": "Once daily, morning or evening" },
+      "warnings": ["BLACK BOX: Do not use during pregnancy — causes fetal harm", "Risk of angioedema — higher in Black patients", "Monitor renal function and potassium levels"],
+      "foodInteractions": ["Avoid potassium-rich salt substitutes", "Limit potassium-rich foods (bananas, oranges)"]
+    },
+    {
+      "name": "Atorvastatin",
+      "brandNames": ["Lipitor"],
+      "category": "Statin (HMG-CoA Reductase Inhibitor)",
+      "sideEffects": ["Muscle pain", "Joint pain", "Elevated liver enzymes", "Rhabdomyolysis (rare)", "Memory issues (rare)"],
+      "interactions": [
+        { "drug": "Grapefruit juice", "severity": "major", "description": "Inhibits CYP3A4 metabolism, increasing statin levels and myopathy risk." },
+        { "drug": "Clarithromycin", "severity": "major", "description": "Strong CYP3A4 inhibitor — increases rhabdomyolysis risk." },
+        { "drug": "Warfarin", "severity": "moderate", "description": "May increase INR and bleeding risk. Monitor closely." },
+        { "drug": "Amlodipine", "severity": "moderate", "description": "Do not exceed atorvastatin 20mg when combined with amlodipine 10mg." }
+      ],
+      "dosageInfo": { "standard": "10-20mg once daily", "max": "80mg per day", "frequency": "Once daily, preferably at bedtime" },
+      "warnings": ["Monitor liver function tests before and during therapy", "Discontinue if unexplained muscle pain occurs", "Contraindicated in active liver disease"],
+      "foodInteractions": ["Avoid large quantities of grapefruit juice", "Can be taken with or without food"]
+    },
+    {
+      "name": "Amoxicillin",
+      "brandNames": ["Amoxil", "Moxatag"],
+      "category": "Penicillin Antibiotic",
+      "sideEffects": ["Diarrhea", "Nausea", "Skin rash", "Vomiting", "Allergic reactions"],
+      "interactions": [
+        { "drug": "Warfarin", "severity": "moderate", "description": "May increase INR and bleeding risk. Monitor anticoagulation." },
+        { "drug": "Methotrexate", "severity": "major", "description": "Penicillins reduce renal clearance of methotrexate, increasing toxicity." },
+        { "drug": "Oral contraceptives", "severity": "minor", "description": "May decrease effectiveness of hormonal contraceptives." },
+        { "drug": "Allopurinol", "severity": "moderate", "description": "Increased incidence of skin rash when combined." }
+      ],
+      "dosageInfo": { "standard": "500mg every 8 hours", "max": "3000mg per day", "frequency": "Every 8 hours" },
+      "warnings": ["Allergy check: Do NOT prescribe to penicillin-allergic patients", "Complete full course to prevent antibiotic resistance", "May cause Clostridioides difficile-associated diarrhea"],
+      "foodInteractions": ["Can be taken with or without food", "Avoid dairy within 2 hours for optimal absorption"]
+    },
+    {
+      "name": "Amlodipine",
+      "brandNames": ["Norvasc"],
+      "category": "Calcium Channel Blocker (Antihypertensive)",
+      "sideEffects": ["Peripheral edema", "Dizziness", "Flushing", "Fatigue", "Palpitations"],
+      "interactions": [
+        { "drug": "Simvastatin", "severity": "major", "description": "Do not exceed simvastatin 20mg. Risk of rhabdomyolysis." },
+        { "drug": "Cyclosporine", "severity": "major", "description": "Increases cyclosporine levels. Monitor closely." },
+        { "drug": "Atorvastatin", "severity": "moderate", "description": "Limit atorvastatin to 20mg daily when combined." },
+        { "drug": "Grapefruit juice", "severity": "moderate", "description": "May increase amlodipine levels via CYP3A4 inhibition." }
+      ],
+      "dosageInfo": { "standard": "5mg once daily", "max": "10mg per day", "frequency": "Once daily" },
+      "warnings": ["Do not discontinue abruptly — risk of rebound hypertension", "Use caution in severe hepatic impairment", "Ankle swelling is common but usually benign"],
+      "foodInteractions": ["Avoid excessive grapefruit juice", "Can be taken with or without food"]
+    },
+    {
+      "name": "Omeprazole",
+      "brandNames": ["Prilosec", "Losec"],
+      "category": "Proton Pump Inhibitor (PPI)",
+      "sideEffects": ["Headache", "Abdominal pain", "Nausea", "Diarrhea", "Vitamin B12 deficiency (long-term)"],
+      "interactions": [
+        { "drug": "Clopidogrel", "severity": "major", "description": "Omeprazole reduces the antiplatelet effect of clopidogrel. Use pantoprazole instead." },
+        { "drug": "Methotrexate", "severity": "major", "description": "PPIs can increase methotrexate levels and toxicity." },
+        { "drug": "Iron supplements", "severity": "moderate", "description": "Reduced gastric acid impairs iron absorption." },
+        { "drug": "Diazepam", "severity": "moderate", "description": "Omeprazole inhibits CYP2C19, increasing diazepam levels." }
+      ],
+      "dosageInfo": { "standard": "20mg once daily", "max": "40mg per day", "frequency": "30 minutes before breakfast" },
+      "warnings": ["Long-term use linked to magnesium deficiency, bone fractures, and kidney disease", "Taper off gradually to avoid rebound acid hypersecretion", "Test for H. pylori before long-term use"],
+      "foodInteractions": ["Take 30-60 minutes before meals for maximum efficacy", "Avoid alcohol — worsens gastric symptoms"]
+    },
+    {
+      "name": "Warfarin",
+      "brandNames": ["Coumadin", "Jantoven"],
+      "category": "Anticoagulant (Blood Thinner)",
+      "sideEffects": ["Bleeding", "Bruising", "Hair loss (rare)", "Purple toe syndrome (rare)", "Skin necrosis (rare)"],
+      "interactions": [
+        { "drug": "Aspirin", "severity": "major", "description": "Dramatically increases bleeding risk. Avoid unless specifically directed." },
+        { "drug": "Ibuprofen", "severity": "major", "description": "NSAIDs increase bleeding risk and may cause GI hemorrhage." },
+        { "drug": "Amoxicillin", "severity": "moderate", "description": "Antibiotics can alter gut flora and increase INR." },
+        { "drug": "Clopidogrel", "severity": "major", "description": "Dual antiplatelet + anticoagulant dramatically increases bleeding risk." }
+      ],
+      "dosageInfo": { "standard": "Individualized based on INR (typically 2-5mg daily)", "max": "INR-guided", "frequency": "Once daily at the same time" },
+      "warnings": ["BLACK BOX: Can cause major or fatal bleeding", "Requires regular INR monitoring", "Numerous drug and food interactions — verify every new medication"],
+      "foodInteractions": ["Maintain consistent Vitamin K intake (green leafy vegetables)", "Avoid cranberry juice — may increase INR", "Alcohol increases bleeding risk"]
+    },
+    {
+      "name": "Clopidogrel",
+      "brandNames": ["Plavix"],
+      "category": "Antiplatelet Agent",
+      "sideEffects": ["Bleeding", "Bruising", "Headache", "Diarrhea", "Rash"],
+      "interactions": [
+        { "drug": "Omeprazole", "severity": "major", "description": "Omeprazole inhibits CYP2C19, reducing clopidogrel activation. Use pantoprazole instead." },
+        { "drug": "Warfarin", "severity": "major", "description": "Combined use dramatically increases bleeding risk." },
+        { "drug": "Aspirin", "severity": "moderate", "description": "Often prescribed together post-stent, but increases bleeding risk. Monitor closely." },
+        { "drug": "SSRIs", "severity": "moderate", "description": "SSRIs impair platelet function. Additive bleeding risk." }
+      ],
+      "dosageInfo": { "standard": "75mg once daily", "max": "75mg per day (300mg loading dose)", "frequency": "Once daily" },
+      "warnings": ["BLACK BOX: CYP2C19 poor metabolizers have reduced drug effectiveness", "Discontinue 5-7 days before elective surgery", "Consider genetic testing for CYP2C19 status"],
+      "foodInteractions": ["Can be taken with or without food", "No significant food interactions"]
+    },
+    {
+      "name": "Ibuprofen",
+      "brandNames": ["Advil", "Motrin"],
+      "category": "NSAID (Nonsteroidal Anti-inflammatory Drug)",
+      "sideEffects": ["Stomach pain", "Heartburn", "Nausea", "Dizziness", "GI bleeding (with chronic use)"],
+      "interactions": [
+        { "drug": "Warfarin", "severity": "major", "description": "Increases bleeding risk significantly. Avoid combination." },
+        { "drug": "Lisinopril", "severity": "moderate", "description": "Reduces antihypertensive effect and increases renal impairment risk." },
+        { "drug": "Aspirin", "severity": "moderate", "description": "Ibuprofen may interfere with aspirin's cardioprotective effect." },
+        { "drug": "Metformin", "severity": "moderate", "description": "May reduce renal function, impairing Metformin clearance." }
+      ],
+      "dosageInfo": { "standard": "200-400mg every 4-6 hours", "max": "1200mg per day (OTC) / 3200mg (prescription)", "frequency": "Every 4-6 hours as needed" },
+      "warnings": ["BLACK BOX: Increased risk of cardiovascular thrombotic events", "BLACK BOX: Increased risk of GI bleeding, ulceration, and perforation", "Use lowest effective dose for shortest duration"],
+      "foodInteractions": ["Take with food or milk to reduce stomach irritation", "Avoid alcohol — increases GI bleeding risk"]
+    },
+    {
+      "name": "Aspirin",
+      "brandNames": ["Bayer", "Ecotrin", "Bufferin"],
+      "category": "NSAID / Antiplatelet",
+      "sideEffects": ["GI upset", "Heartburn", "Tinnitus (high doses)", "Bleeding", "Reye's syndrome in children"],
+      "interactions": [
+        { "drug": "Warfarin", "severity": "major", "description": "Dramatically increases bleeding risk. Monitor INR closely." },
+        { "drug": "Ibuprofen", "severity": "moderate", "description": "Ibuprofen may reduce aspirin's cardioprotective effect if taken before aspirin." },
+        { "drug": "Clopidogrel", "severity": "moderate", "description": "Dual antiplatelet increases bleeding risk but may be indicated post-stent." },
+        { "drug": "Methotrexate", "severity": "major", "description": "Aspirin reduces renal clearance of methotrexate, increasing toxicity." }
+      ],
+      "dosageInfo": { "standard": "81mg daily (cardioprotective) / 325-650mg every 4-6 hours (pain)", "max": "4000mg per day", "frequency": "Varies by indication" },
+      "warnings": ["Do NOT give to children under 18 — Reye's syndrome risk", "Discontinue 7-10 days before surgery", "Use enteric-coated to reduce GI effects"],
+      "foodInteractions": ["Take with food to reduce GI irritation", "Avoid alcohol — increases GI bleeding risk"]
+    },
+    {
+      "name": "Levothyroxine",
+      "brandNames": ["Synthroid", "Levoxyl", "Tirosint"],
+      "category": "Thyroid Hormone Replacement",
+      "sideEffects": ["Palpitations", "Weight loss", "Tremor", "Insomnia", "Heat intolerance"],
+      "interactions": [
+        { "drug": "Calcium supplements", "severity": "major", "description": "Calcium binds levothyroxine in the gut, reducing absorption. Separate by 4 hours." },
+        { "drug": "Iron supplements", "severity": "major", "description": "Iron reduces absorption. Separate by 4 hours." },
+        { "drug": "Omeprazole", "severity": "moderate", "description": "PPIs reduce gastric acid needed for levothyroxine absorption." },
+        { "drug": "Warfarin", "severity": "moderate", "description": "Levothyroxine increases warfarin's anticoagulant effect. Monitor INR." }
+      ],
+      "dosageInfo": { "standard": "25-50mcg daily (initial), titrated to TSH", "max": "200-300mcg per day", "frequency": "Once daily on empty stomach, 30-60 min before breakfast" },
+      "warnings": ["Take on empty stomach 30-60 minutes before food", "Do not switch brands without physician approval — bioavailability differs", "Overtreatment causes atrial fibrillation and bone loss"],
+      "foodInteractions": ["Coffee, fiber, and soy reduce absorption — take separately", "Avoid taking with breakfast — take 30-60 min before"]
+    },
+    {
+      "name": "Prednisone",
+      "brandNames": ["Deltasone", "Rayos"],
+      "category": "Corticosteroid",
+      "sideEffects": ["Weight gain", "Mood changes", "Insomnia", "Elevated blood sugar", "Osteoporosis (long-term)"],
+      "interactions": [
+        { "drug": "Ibuprofen", "severity": "major", "description": "Combined NSAID + corticosteroid dramatically increases GI ulcer risk." },
+        { "drug": "Warfarin", "severity": "moderate", "description": "Corticosteroids can alter INR in either direction. Monitor closely." },
+        { "drug": "Metformin", "severity": "moderate", "description": "Prednisone raises blood glucose, counteracting Metformin's effect." },
+        { "drug": "Live vaccines", "severity": "major", "description": "Immunosuppressive doses contraindicate live vaccines." }
+      ],
+      "dosageInfo": { "standard": "5-60mg daily (varies widely by condition)", "max": "Condition-dependent", "frequency": "Once daily in the morning" },
+      "warnings": ["Do NOT stop abruptly after >7 days — taper gradually to avoid adrenal crisis", "Increases infection risk at immunosuppressive doses", "Monitor blood glucose in diabetic patients"],
+      "foodInteractions": ["Take with food to reduce stomach irritation", "High-sodium diet may worsen fluid retention"]
+    },
+    {
+      "name": "Losartan",
+      "brandNames": ["Cozaar"],
+      "category": "ARB (Angiotensin II Receptor Blocker)",
+      "sideEffects": ["Dizziness", "Hyperkalemia", "Fatigue", "Nasal congestion", "Back pain"],
+      "interactions": [
+        { "drug": "Potassium supplements", "severity": "major", "description": "Can cause dangerous hyperkalemia. Monitor potassium levels." },
+        { "drug": "Lisinopril", "severity": "major", "description": "Do not combine ACE inhibitor + ARB — increased renal failure and hyperkalemia risk." },
+        { "drug": "Ibuprofen", "severity": "moderate", "description": "NSAIDs reduce antihypertensive effect and increase renal risk." },
+        { "drug": "Lithium", "severity": "major", "description": "ARBs reduce lithium clearance, increasing toxicity risk." }
+      ],
+      "dosageInfo": { "standard": "50mg once daily", "max": "100mg per day", "frequency": "Once or twice daily" },
+      "warnings": ["BLACK BOX: Do not use during pregnancy — causes fetal harm", "Monitor renal function and potassium levels", "Do not combine with ACE inhibitors"],
+      "foodInteractions": ["Can be taken with or without food", "Avoid potassium-rich salt substitutes"]
+    },
+    {
+      "name": "Hydrochlorothiazide",
+      "brandNames": ["Microzide", "Oretic"],
+      "category": "Thiazide Diuretic",
+      "sideEffects": ["Dizziness", "Frequent urination", "Electrolyte imbalance", "Photosensitivity", "Elevated blood sugar"],
+      "interactions": [
+        { "drug": "Lisinopril", "severity": "minor", "description": "Often used together intentionally. Monitor for excessive hypotension." },
+        { "drug": "Lithium", "severity": "major", "description": "Thiazides reduce lithium clearance, increasing toxicity risk." },
+        { "drug": "Digoxin", "severity": "major", "description": "Hypokalemia from HCTZ increases digoxin toxicity risk." },
+        { "drug": "Metformin", "severity": "moderate", "description": "HCTZ may raise blood glucose, counteracting Metformin." }
+      ],
+      "dosageInfo": { "standard": "12.5-25mg once daily", "max": "50mg per day", "frequency": "Once daily in the morning" },
+      "warnings": ["Monitor electrolytes (potassium, sodium, magnesium)", "May worsen gout by increasing uric acid", "Increases photosensitivity — use sunscreen"],
+      "foodInteractions": ["Take in the morning to avoid nighttime urination", "Eat potassium-rich foods (bananas, potatoes) to prevent hypokalemia"]
+    },
+    {
+      "name": "Sertraline",
+      "brandNames": ["Zoloft"],
+      "category": "SSRI (Selective Serotonin Reuptake Inhibitor)",
+      "sideEffects": ["Nausea", "Insomnia", "Diarrhea", "Sexual dysfunction", "Dizziness"],
+      "interactions": [
+        { "drug": "MAOIs", "severity": "major", "description": "CONTRAINDICATED — risk of fatal serotonin syndrome. 14-day washout required." },
+        { "drug": "Tramadol", "severity": "major", "description": "Increased risk of serotonin syndrome and seizures." },
+        { "drug": "Warfarin", "severity": "moderate", "description": "SSRIs impair platelet function, increasing bleeding risk." },
+        { "drug": "Clopidogrel", "severity": "moderate", "description": "Additive effect on platelet function. Monitor for bleeding." }
+      ],
+      "dosageInfo": { "standard": "50mg once daily", "max": "200mg per day", "frequency": "Once daily, morning or evening" },
+      "warnings": ["BLACK BOX: Increased suicidal thinking in children and young adults (under 25)", "Do not discontinue abruptly — taper over 2-4 weeks", "Monitor for serotonin syndrome symptoms"],
+      "foodInteractions": ["Can be taken with or without food", "Avoid alcohol — worsens depression and sedation"]
+    },
+    {
+      "name": "Gabapentin",
+      "brandNames": ["Neurontin", "Gralise"],
+      "category": "Anticonvulsant / Neuropathic Pain Agent",
+      "sideEffects": ["Drowsiness", "Dizziness", "Peripheral edema", "Weight gain", "Ataxia"],
+      "interactions": [
+        { "drug": "Opioids", "severity": "major", "description": "Combined use increases risk of respiratory depression and death." },
+        { "drug": "Antacids", "severity": "moderate", "description": "Aluminum/magnesium antacids reduce gabapentin absorption by 20%. Separate by 2 hours." },
+        { "drug": "Alcohol", "severity": "major", "description": "Enhances CNS depression. Avoid combination." },
+        { "drug": "Morphine", "severity": "major", "description": "Morphine increases gabapentin levels. Increased sedation risk." }
+      ],
+      "dosageInfo": { "standard": "300mg three times daily", "max": "3600mg per day", "frequency": "Three times daily" },
+      "warnings": ["Do NOT stop abruptly — taper over at least one week to prevent seizures", "Dose adjustment required in renal impairment", "May cause suicidal ideation — monitor mental health"],
+      "foodInteractions": ["Can be taken with or without food", "Avoid alcohol — increases sedation"]
+    },
+    {
+      "name": "Pantoprazole",
+      "brandNames": ["Protonix"],
+      "category": "Proton Pump Inhibitor (PPI)",
+      "sideEffects": ["Headache", "Diarrhea", "Nausea", "Abdominal pain", "Flatulence"],
+      "interactions": [
+        { "drug": "Methotrexate", "severity": "major", "description": "PPIs can increase methotrexate levels and toxicity." },
+        { "drug": "Warfarin", "severity": "moderate", "description": "May alter INR. Monitor anticoagulation." },
+        { "drug": "Iron supplements", "severity": "moderate", "description": "Reduced gastric acid impairs iron absorption." },
+        { "drug": "Clopidogrel", "severity": "minor", "description": "Pantoprazole has minimal CYP2C19 inhibition — preferred PPI with clopidogrel." }
+      ],
+      "dosageInfo": { "standard": "40mg once daily", "max": "80mg per day", "frequency": "30 minutes before breakfast" },
+      "warnings": ["Long-term use linked to magnesium deficiency and bone fractures", "Preferred over omeprazole when used with clopidogrel", "Taper off to avoid rebound acid"],
+      "foodInteractions": ["Take 30-60 minutes before meals", "Swallow tablets whole — do not crush or chew"]
+    },
+    {
+      "name": "Ciprofloxacin",
+      "brandNames": ["Cipro"],
+      "category": "Fluoroquinolone Antibiotic",
+      "sideEffects": ["Nausea", "Diarrhea", "Dizziness", "Tendon rupture (rare)", "Peripheral neuropathy"],
+      "interactions": [
+        { "drug": "Antacids", "severity": "major", "description": "Aluminum, magnesium, calcium antacids bind ciprofloxacin. Separate by 2 hours." },
+        { "drug": "Warfarin", "severity": "major", "description": "Ciprofloxacin significantly increases INR and bleeding risk." },
+        { "drug": "Theophylline", "severity": "major", "description": "Ciprofloxacin inhibits theophylline metabolism, increasing toxicity risk." },
+        { "drug": "Corticosteroids", "severity": "major", "description": "Combined use dramatically increases tendon rupture risk." }
+      ],
+      "dosageInfo": { "standard": "250-500mg twice daily", "max": "1500mg per day", "frequency": "Every 12 hours" },
+      "warnings": ["BLACK BOX: Tendinitis and tendon rupture — especially in patients >60, on corticosteroids, or with kidney/heart/lung transplants", "BLACK BOX: May worsen myasthenia gravis", "Avoid in patients with QT prolongation"],
+      "foodInteractions": ["Avoid dairy products and calcium-fortified foods within 2 hours of dose", "Drink plenty of water to prevent crystalluria"]
+    },
+    {
+      "name": "Albuterol",
+      "brandNames": ["ProAir", "Ventolin", "Proventil"],
+      "category": "Short-Acting Beta-2 Agonist (Bronchodilator)",
+      "sideEffects": ["Tremor", "Tachycardia", "Nervousness", "Headache", "Throat irritation"],
+      "interactions": [
+        { "drug": "Beta-blockers", "severity": "major", "description": "Beta-blockers antagonize albuterol's bronchodilating effect. Avoid non-selective beta-blockers." },
+        { "drug": "Digoxin", "severity": "moderate", "description": "Albuterol may decrease digoxin levels." },
+        { "drug": "Diuretics", "severity": "moderate", "description": "Both can cause hypokalemia. Monitor potassium." },
+        { "drug": "MAOIs", "severity": "moderate", "description": "May potentiate cardiovascular effects of albuterol." }
+      ],
+      "dosageInfo": { "standard": "1-2 puffs every 4-6 hours as needed", "max": "12 puffs per day", "frequency": "Every 4-6 hours as needed" },
+      "warnings": ["Using more than 2 days per week indicates poorly controlled asthma", "Rinse mouth after use if using with inhaled corticosteroid", "Seek medical attention if not relieving symptoms"],
+      "foodInteractions": ["No significant food interactions", "Avoid caffeine — may worsen tremor and tachycardia"]
+    },
+    {
+      "name": "Vitamin D3",
+      "brandNames": ["Cholecalciferol"],
+      "category": "Vitamin Supplement",
+      "sideEffects": ["Hypercalcemia (high doses)", "Nausea", "Constipation", "Weakness", "Kidney stones (rare)"],
+      "interactions": [
+        { "drug": "Thiazide diuretics", "severity": "moderate", "description": "Thiazides reduce calcium excretion, increasing hypercalcemia risk with vitamin D." },
+        { "drug": "Digoxin", "severity": "major", "description": "Vitamin D-induced hypercalcemia increases digoxin toxicity risk." },
+        { "drug": "Orlistat", "severity": "moderate", "description": "Orlistat reduces fat absorption, decreasing vitamin D uptake." },
+        { "drug": "Cholestyramine", "severity": "moderate", "description": "Bile acid sequestrants reduce vitamin D absorption." }
+      ],
+      "dosageInfo": { "standard": "1000-2000 IU daily", "max": "4000 IU per day (without supervision)", "frequency": "Once daily" },
+      "warnings": ["Monitor calcium and 25-OH vitamin D levels in high-dose therapy", "Excessive intake causes hypercalcemia", "Patients with kidney disease need active form (calcitriol)"],
+      "foodInteractions": ["Take with a fat-containing meal for best absorption", "No significant restrictions"]
+    }
+  ]
+}

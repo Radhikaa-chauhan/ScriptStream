@@ -21,7 +21,7 @@ export const chatNode = async (state: State) => {
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
-  const systemContext = new SystemMessage(`You are a helpful medical assistant AI named MediScript.
+  const systemContext = new SystemMessage(`You are a helpful medical assistant AI named ScriptStream.
   You are answering a patient's questions about their newly generated medication schedule and safety warnings.
   
   CONTEXT:
