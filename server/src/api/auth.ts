@@ -3,14 +3,17 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { User } from "../database/models";
 
+console.log("[AUTH] Loading authentication module...");
 const JWT_SECRET = process.env.JWT_SECRET || "default_development_secret";
 
 /**
  * Register a new user
  */
 export const register = async (req: Request, res: Response) => {
+  console.log("[AUTH] Register endpoint called");
   try {
     const { name, email, password } = req.body;
+    console.log("[AUTH] Register attempt for email:", email);
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });

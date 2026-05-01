@@ -1,4 +1,4 @@
-import { StateGraph, START, END } from "@langchain/langgraph";
+import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { StateAnnotation } from "./state";
 import { visionNode } from "./nodes/visionNode";
 import { ragLookupNode } from "./nodes/ragLookupNode";
@@ -12,12 +12,22 @@ import { chatNode } from "./nodes/chatNode";
  * The ScriptStream AI Workflow
  * 7-Node State Machine
  */
+console.log("[GRAPH] Initializing LangGraph workflow...");
+
+// Note: ragLookupNode and notifyNode will be implemented by Member 4
+
+// In-memory checkpointer for Human-in-the-loop state saving
+const checkpointer = new MemorySaver();
+console.log("[GRAPH] Memory checkpoint saver created");
+
+
 const workflow = new StateGraph(StateAnnotation)
   // 1. Vision Node
   .addNode("vision", visionNode)
 
   // 2. Verification Gate (Human confirms extraction)
   .addNode("verification", async (state) => {
+    console.log("[GRAPH] Verification gate reached");
     // Controller pauses graph here until human confirms
     return { status: "ready_for_analysis" };
   })
@@ -28,8 +38,8 @@ const workflow = new StateGraph(StateAnnotation)
   // 4. Safety Node
   .addNode("safety", safetyNode)
 
-  // 5. Schedule Node
-  .addNode("schedule", scheduleNode)
+  // 5. Schedule Node (Renamed to scheduler to avoid state channel collision)
+  .addNode("scheduler", scheduleNode)
 
   // 6. Notification Node (Member 4)
   .addNode("notify", notifyNode)
@@ -45,11 +55,15 @@ const workflow = new StateGraph(StateAnnotation)
 
   // Conditional routing: if safety fails, we might go to END or back to human.
   // For V1, we flow sequentially through the pipeline
-  .addEdge("safety", "schedule")
-  .addEdge("schedule", "notify")
+  .addEdge("safety", "scheduler")
+  .addEdge("scheduler", "notify")
 
   // Chat node runs in a loop or asynchronously after the main pipeline finishes
   .addEdge("notify", "chat")
   .addEdge("chat", END);
 
-export const graph = workflow.compile();
+// Compile the graph with the checkpointer and interrupt condition
+export const graph = workflow.compile({
+  checkpointer,
+  interruptBefore: ["verification"],
+});

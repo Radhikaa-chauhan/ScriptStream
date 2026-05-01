@@ -136,7 +136,7 @@ export default function UploadIdle() {
                     Drag your file here or click to browse from your device
                   </p>
                 </div>
-                <button className="btn-primary text-sm mt-1" onClick={(e) => e.stopPropagation()}>
+                <button className="btn-primary text-sm mt-1">
                   <Upload size={15} />
                   Select Image File
                 </button>

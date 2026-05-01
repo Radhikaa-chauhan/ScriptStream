@@ -1,6 +1,6 @@
-import { anthropic, withRetry } from "../../utils/anthropic";
+import { gemini, withRetryGemini } from "../../utils/gemini";
 import { State, ScheduleSchema } from "../state";
-import { emitStatus } from "../../../server";
+import { emitStatus } from "../../sockets/socketEvents";
 
 /**
  * Scheduling Agent Node
@@ -8,9 +8,11 @@ import { emitStatus } from "../../../server";
  * daily schedule (Morning, Afternoon, Evening, Night).
  */
 export const scheduleNode = async (state: State) => {
+  console.log("[SCHEDULE] Starting schedule node...");
   emitStatus("processing", "Scheduling Agent: Generating daily medication schedule...");
 
   if (!state.extractedData || state.extractedData.medications.length === 0) {
+    console.log("[SCHEDULE] No medications to schedule, skipping");
     return {
       schedule: { morning: [], afternoon: [], evening: [], night: [], notes: ["No medications to schedule."] },
       executionLogs: [...state.executionLogs, "Scheduling Agent: Skipped (no medications)."],
@@ -20,55 +22,55 @@ export const scheduleNode = async (state: State) => {
 
   const medsData = JSON.stringify(state.extractedData.medications, null, 2);
 
-  const toolDefinition = {
-    name: "generate_medication_schedule",
-    description: "Map medication instructions to a 4-part daily schedule.",
-    input_schema: {
-      type: "object",
-      properties: {
-        morning: { type: "array", items: { type: "string" }, description: "Meds to take in the morning" },
-        afternoon: { type: "array", items: { type: "string" }, description: "Meds to take in the afternoon" },
-        evening: { type: "array", items: { type: "string" }, description: "Meds to take in the evening" },
-        night: { type: "array", items: { type: "string" }, description: "Meds to take at night" },
-        notes: { type: "array", items: { type: "string" }, description: "Important safety notes or instructions" }
-      },
-      required: ["morning", "afternoon", "evening", "night", "notes"]
-    }
-  };
-
   const runScheduleAgent = async () => {
-    return await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
-      max_tokens: 1500,
-      system: "You are an expert medical scheduler AI. Map raw instructions to the daily schedule using the generate_medication_schedule tool. Interpret abbreviations like BID (twice daily).",
-      tools: [toolDefinition as any],
-      tool_choice: { type: "tool", name: "generate_medication_schedule" },
-      messages: [
-        {
-          role: "user",
-          content: `Medications to schedule:\n${medsData}\n\nGenerate the structured schedule.`,
-        },
-      ],
+    return await gemini.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: `You are an expert medical scheduler AI. Map raw medication instructions to the daily schedule. Interpret abbreviations like BID (twice daily), TID (three times daily), QID (four times daily). Return ONLY a valid JSON object with no markdown formatting.
+
+Medications to schedule:
+${medsData}
+
+Return a JSON object like this:
+{
+  "morning": ["medication name with time"],
+  "afternoon": ["medication name with time"],
+  "evening": ["medication name with time"],
+  "night": ["medication name with time"],
+  "notes": ["important safety notes"]
+}
+
+Ensure all keys are present (use empty arrays if no medications for that time).`
     });
   };
 
   try {
-    const response = await withRetry(runScheduleAgent);
+    const response = await withRetryGemini(runScheduleAgent);
     
-    const toolUse = response.content.find((c: any) => c.type === "tool_use") as any;
+    // Extract text from Gemini response
+    const responseText = response.text || "";
     
-    if (!toolUse) {
-      throw new Error("Scheduling Agent failed to use the schedule tool.");
+    if (!responseText) {
+      throw new Error("Scheduling Agent returned empty response.");
     }
 
+    // Parse JSON from response (handle potential markdown formatting)
+    let jsonStr = responseText.trim();
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+
+    const parsedResponse = JSON.parse(jsonStr);
+
     // Validate with Zod
-    const schedule = ScheduleSchema.parse(toolUse.input);
+    const schedule = ScheduleSchema.parse(parsedResponse);
     
     emitStatus("success", "Scheduling Agent: Daily schedule finalized.");
     
     return {
       schedule,
-      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete with Tool Calling."],
+      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete with Gemini JSON parsing."],
       status: "schedule_complete"
     };
   } catch (error: any) {

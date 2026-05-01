@@ -106,7 +106,7 @@ export default function Prescriptions() {
                     <tr
                       key={rx._id}
                       className="border-b border-slate-50 hover:bg-surface-secondary transition-colors cursor-pointer"
-                      onClick={() => navigate("/results")}
+                      onClick={() => navigate("/results", { state: { prescriptionId: rx._id } })}
                     >
                       <td className="py-3 pr-4 text-brand-600 font-semibold">{rx._id?.toString().slice(-8) || "—"}</td>
                       <td className="py-3 pr-4 text-ink-secondary">{formatDate(rx.createdAt)}</td>

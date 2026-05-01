@@ -34,7 +34,7 @@ const PrescriptionSchema = new Schema<IPrescription>({
   dailySchedule: { type: Schema.Types.Mixed, default: {} },
   safetyWarnings: { type: [String], default: [] },
   confidenceScore: { type: Number, default: 0 },
-  status: { type: String, enum: ["pending", "processed", "failed"], default: "pending" },
+  status: { type: String, enum: ["pending", "awaiting_verification", "processed", "failed"], default: "pending" },
   createdAt: { type: Date, default: Date.now },
 });
 

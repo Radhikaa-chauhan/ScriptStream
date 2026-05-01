@@ -1,74 +1,176 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   AlertOctagon,
   Search,
-  Filter,
   CheckCircle2,
-  Clock,
   X,
-  ChevronDown,
   ZoomIn,
+  Loader2,
+  RefreshCw,
+  Clock,
+  ShieldAlert,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
+import { getPrescriptions, verifyScan } from "../services/api";
 
-const stats = [
-  { label: "Total Scans", value: "1,284", color: "text-ink" },
-  { label: "Verified", value: "1,102", color: "text-green-600" },
-  { label: "Pending Review", value: "98", color: "text-amber-600" },
-  { label: "Flagged", value: "84", color: "text-red-600" },
-];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const records = [
-  { id: "ALRT-8842", patient: "Michael Chen", date: "Oct 24, 2024", drug: "Amoxicillin", status: "Flagged", accuracy: 71, assigned: "System Admin" },
-  { id: "RX-8843", patient: "Sarah Kim", date: "Oct 22, 2024", drug: "Metformin", status: "Review Required", accuracy: 82, assigned: "Dr. Lee" },
-  { id: "RX-9012", patient: "James Patel", date: "Oct 20, 2024", drug: "Lisinopril, Atorvastatin", status: "Verified", accuracy: 98, assigned: "System Admin" },
-  { id: "RX-7721", patient: "Emma Wilson", date: "Oct 18, 2024", drug: "Amoxicillin", status: "Verified", accuracy: 99, assigned: "Dr. Wong" },
-  { id: "ALRT-8800", patient: "David Nguyen", date: "Oct 15, 2024", drug: "Warfarin", status: "Flagged", accuracy: 65, assigned: "System Admin" },
-  { id: "RX-6502", patient: "Lisa Thompson", date: "Oct 12, 2024", drug: "Vitamin D3", status: "Verified", accuracy: 96, assigned: "Dr. Smith" },
-];
-
-const statusBadge = (s) => {
-  if (s === "Verified") return <span className="badge-success">{s}</span>;
-  if (s === "Flagged") return <span className="badge-danger">{s}</span>;
-  return <span className="badge-warning">{s}</span>;
+const formatDate = (dateStr) => {
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
 };
 
+const statusBadge = (status) => {
+  if (status === "awaiting_verification")
+    return <span className="badge-warning">Awaiting Review</span>;
+  if (status === "processed")
+    return <span className="badge-success">Verified</span>;
+  if (status === "failed")
+    return <span className="badge-danger">Failed</span>;
+  return <span className="badge-warning">Pending</span>;
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function AdminOps() {
-  const navigate = useNavigate();
-  const [selectedRecord, setSelectedRecord] = useState(records[0]);
-  const [panelOpen, setPanelOpen] = useState(true);
-  const [drugName, setDrugName] = useState("Amoxicillin");
-  const [dosage, setDosage] = useState("500mg");
-  const [frequency, setFrequency] = useState("TID");
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [selectedRx, setSelectedRx] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState(null);
+  const [search, setSearch] = useState("");
 
-  const handleApprove = () => {
-    alert("Results approved and published successfully!");
-    setPanelOpen(false);
+  // Editable fields for AI-extracted data
+  const [editMeds, setEditMeds] = useState([]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const { data } = await getPrescriptions();
+      const items = data.prescriptions || [];
+      // Sort: awaiting_verification first, then by date desc
+      const sorted = [...items].sort((a, b) => {
+        if (a.status === "awaiting_verification" && b.status !== "awaiting_verification") return -1;
+        if (b.status === "awaiting_verification" && a.status !== "awaiting_verification") return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      setPrescriptions(sorted);
+    } catch (err) {
+      console.error("Failed to fetch prescriptions:", err);
+      setFetchError("Could not load prescriptions from server.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const openPanel = (rx) => {
+    setSelectedRx(rx);
+    // Pre-fill editable meds from extracted data
+    const meds = rx.extractedData?.medications || [];
+    setEditMeds(meds.map((m) => ({ ...m })));
+    setPanelOpen(true);
+    setActionMsg(null);
   };
 
-  const handleReject = () => {
-    alert("Scan rejected. Patient will be notified.");
-    setPanelOpen(false);
+  const handleApprove = async () => {
+    if (!selectedRx) return;
+    setActionLoading(true);
+    setActionMsg(null);
+    try {
+      // Build updated extractedData with the admin-edited medications
+      const updatedExtractedData = {
+        ...selectedRx.extractedData,
+        medications: editMeds,
+      };
+      await verifyScan(selectedRx._id, updatedExtractedData);
+      setActionMsg({ type: "success", text: "✅ Approved! LangGraph AI pipeline is now resuming — RAG lookup, safety check, and scheduling are running in the background." });
+      // Update local state
+      setPrescriptions((prev) =>
+        prev.map((p) =>
+          p._id === selectedRx._id ? { ...p, status: "pending" } : p
+        )
+      );
+    } catch (err) {
+      console.error("Verify error:", err);
+      setActionMsg({ type: "error", text: `❌ Failed to approve: ${err.response?.data?.message || err.message}` });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleEscalate = () => {
-    alert("Case escalated to supervising doctor.");
-    setPanelOpen(false);
+  const handleReject = async () => {
+    if (!selectedRx) return;
+    setActionLoading(true);
+    setActionMsg(null);
+    try {
+      // For now mark as failed locally (no dedicated reject endpoint yet)
+      setActionMsg({ type: "warning", text: "⚠️ Scan rejected. Prescription has been marked as failed." });
+      setPrescriptions((prev) =>
+        prev.map((p) =>
+          p._id === selectedRx._id ? { ...p, status: "failed" } : p
+        )
+      );
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  const filtered = prescriptions.filter((rx) => {
+    const q = search.toLowerCase();
+    return (
+      rx._id?.toString().toLowerCase().includes(q) ||
+      rx.extractedData?.doctorName?.toLowerCase().includes(q) ||
+      rx.extractedData?.medications?.some((m) => m.name?.toLowerCase().includes(q))
+    );
+  });
+
+  const pending = prescriptions.filter((p) => p.status === "awaiting_verification").length;
+  const verified = prescriptions.filter((p) => p.status === "processed").length;
+  const failed = prescriptions.filter((p) => p.status === "failed").length;
+
+  const stats = [
+    { label: "Total Scans", value: prescriptions.length, color: "text-ink" },
+    { label: "Verified", value: verified, color: "text-green-600" },
+    { label: "Awaiting Review", value: pending, color: "text-amber-600" },
+    { label: "Failed", value: failed, color: "text-red-600" },
+  ];
 
   return (
     <AppLayout>
       <div className="flex flex-col min-h-[calc(100vh-56px)]">
         <div className="flex-1 flex gap-5">
-          {/* Main content */}
-          <div className={`flex flex-col flex-1 min-w-0 transition-all ${panelOpen ? "mr-0" : ""}`}>
+          {/* Main Content */}
+          <div className="flex flex-col flex-1 min-w-0">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h1 className="font-display text-2xl font-bold text-ink">Admin Operations</h1>
-                <p className="text-sm text-ink-secondary mt-0.5">Review and manage flagged prescription scans</p>
+                <p className="text-sm text-ink-secondary mt-0.5">
+                  Review AI-extracted prescriptions before the pipeline resumes
+                </p>
               </div>
+              <button
+                onClick={fetchData}
+                className="btn-secondary text-sm py-2"
+                disabled={loading}
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
             </div>
 
             {/* Stats */}
@@ -81,75 +183,108 @@ export default function AdminOps() {
               ))}
             </div>
 
+            {fetchError && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2 mb-4">
+                {fetchError}
+              </div>
+            )}
+
             {/* Table */}
             <div className="card flex-1">
-              {/* Filters */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="relative flex-1 max-w-sm">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
                   <input
                     type="text"
-                    placeholder="Search records..."
+                    placeholder="Search by ID, doctor, or drug..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 text-sm bg-surface-secondary border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
                   />
                 </div>
-                <button className="btn-secondary text-sm py-2">
-                  <Filter size={14} />
-                  Filter
-                  <ChevronDown size={13} />
-                </button>
+                {pending > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 font-medium">
+                    <Clock size={12} />
+                    {pending} scan{pending > 1 ? "s" : ""} awaiting your review
+                  </span>
+                )}
               </div>
 
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    {["ID", "Patient", "Date", "Drug", "Status", "Accuracy", "Assigned"].map((h) => (
-                      <th key={h} className="text-left py-2 pr-4 text-xs font-semibold text-ink-muted uppercase tracking-wide">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((rec) => (
-                    <tr
-                      key={rec.id}
-                      onClick={() => { setSelectedRecord(rec); setPanelOpen(true); }}
-                      className={`border-b border-slate-50 cursor-pointer transition-colors ${
-                        selectedRecord?.id === rec.id && panelOpen
-                          ? "bg-brand-50"
-                          : "hover:bg-surface-secondary"
-                      }`}
-                    >
-                      <td className="py-3 pr-4 font-semibold text-brand-600">{rec.id}</td>
-                      <td className="py-3 pr-4 font-medium text-ink">{rec.patient}</td>
-                      <td className="py-3 pr-4 text-ink-secondary">{rec.date}</td>
-                      <td className="py-3 pr-4 text-ink">{rec.drug}</td>
-                      <td className="py-3 pr-4">{statusBadge(rec.status)}</td>
-                      <td className={`py-3 pr-4 font-semibold ${rec.accuracy >= 90 ? "text-green-600" : rec.accuracy >= 80 ? "text-amber-600" : "text-red-600"}`}>
-                        {rec.accuracy}%
-                      </td>
-                      <td className="py-3 text-ink-secondary">{rec.assigned}</td>
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 size={24} className="text-brand-600 animate-spin" />
+                  <span className="ml-3 text-sm text-ink-muted">Loading prescriptions...</span>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-16 text-ink-muted text-sm">
+                  No prescriptions found.
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      {["ID", "Date", "Doctor", "Medications", "Status", ""].map((h, i) => (
+                        <th
+                          key={i}
+                          className="text-left py-2 pr-4 text-xs font-semibold text-ink-muted uppercase tracking-wide"
+                        >
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((rx) => (
+                      <tr
+                        key={rx._id}
+                        onClick={() => openPanel(rx)}
+                        className={`border-b border-slate-50 cursor-pointer transition-colors ${
+                          selectedRx?._id === rx._id && panelOpen
+                            ? "bg-brand-50"
+                            : "hover:bg-surface-secondary"
+                        }`}
+                      >
+                        <td className="py-3 pr-4 font-semibold text-brand-600">
+                          ...{rx._id?.toString().slice(-8)}
+                        </td>
+                        <td className="py-3 pr-4 text-ink-secondary">{formatDate(rx.createdAt)}</td>
+                        <td className="py-3 pr-4 font-medium text-ink">
+                          {rx.extractedData?.doctorName || "—"}
+                        </td>
+                        <td className="py-3 pr-4 text-ink-secondary">
+                          {rx.extractedData?.medications?.map((m) => m.name).join(", ") || "—"}
+                        </td>
+                        <td className="py-3 pr-4">{statusBadge(rx.status)}</td>
+                        <td className="py-3">
+                          {rx.status === "awaiting_verification" && (
+                            <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
+                              <ShieldAlert size={12} />
+                              Review
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
-          {/* Side panel */}
-          {panelOpen && selectedRecord && (
+          {/* Side Panel */}
+          {panelOpen && selectedRx && (
             <div className="w-96 flex-shrink-0 animate-slide-in">
               <div className="bg-white rounded-2xl border border-slate-100 shadow-card-xl overflow-hidden h-full flex flex-col">
-                {/* Panel header */}
+                {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <AlertOctagon size={16} className="text-red-500" />
-                      <h3 className="font-display font-bold text-sm text-ink">Flagged Review</h3>
+                      <AlertOctagon size={16} className="text-amber-500" />
+                      <h3 className="font-display font-bold text-sm text-ink">Human Verification</h3>
                     </div>
                     <p className="text-xs text-ink-muted">
-                      ID: {selectedRecord.id} • Assigned to {selectedRecord.assigned}
+                      ID: ...{selectedRx._id?.toString().slice(-8)} •{" "}
+                      {formatDate(selectedRx.createdAt)}
                     </p>
                   </div>
                   <button
@@ -161,108 +296,122 @@ export default function AdminOps() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
-                  {/* Handwritten source */}
-                  <div>
-                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest mb-2">
-                      Handwritten Source
-                    </p>
-                    <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden relative">
-                      <div className="p-4 text-center min-h-[160px] flex items-center justify-center">
-                        <div className="font-mono text-xs text-ink leading-relaxed text-left">
-                          <p className="font-bold mb-2 text-sm">Px</p>
-                          <p>Amoxicillin 500mg, twice daily</p>
-                          <p>Ibuprofen 400mg, as needed</p>
-                          <p>Prednisone 20, daily x 5 days</p>
-                          <p className="mt-4 text-ink-muted text-[10px]">Dr. Eleanor Vance</p>
-                          <p className="text-ink-muted text-[10px]">License #12345</p>
-                        </div>
-                      </div>
-                      <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] px-2 py-0.5 rounded flex items-center gap-1">
-                        <ZoomIn size={9} />
-                        Zoom: 1.2x
-                      </div>
-                    </div>
+                  {/* Status */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-ink-muted">Status:</span>
+                    {statusBadge(selectedRx.status)}
                   </div>
 
-                  {/* AI Extracted Details */}
-                  <div>
-                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest mb-3">
-                      AI Extracted Details
-                    </p>
-                    <div className="mb-3">
-                      <label className="text-xs font-medium text-ink-muted mb-1 block">Drug Name</label>
-                      <div className="flex gap-2">
-                        <input
-                          value={drugName}
-                          onChange={(e) => setDrugName(e.target.value)}
-                          className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
-                        />
-                        <span className="badge-danger self-center flex-shrink-0">Low Confidence</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="text-xs font-medium text-ink-muted mb-1 block">Dosage</label>
-                        <input
-                          value={dosage}
-                          onChange={(e) => setDosage(e.target.value)}
-                          className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-ink-muted mb-1 block">Frequency</label>
-                        <input
-                          value={frequency}
-                          onChange={(e) => setFrequency(e.target.value)}
-                          className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
-                        />
-                      </div>
-                    </div>
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                      <div className="flex items-center gap-1.5 text-red-600 mb-1">
-                        <AlertOctagon size={13} />
-                        <span className="text-xs font-bold">Flag Reason</span>
-                      </div>
-                      <p className="text-xs text-red-600 leading-relaxed">
-                        Illegible dosage field: 'TID' could be 'BID' due to ink smudge.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* System Context */}
+                  {/* Doctor / Patient Info */}
                   <div>
                     <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest mb-2">
-                      System Context
+                      Prescription Info
                     </p>
                     <div className="bg-surface-secondary rounded-xl divide-y divide-slate-100">
                       {[
-                        { label: "Patient:", value: selectedRecord.patient, color: "text-ink" },
-                        { label: "OCR Engine:", value: "Vision-X Pro", color: "text-ink" },
-                        { label: "RAG Match:", value: "Verified Database Entry", color: "text-green-600" },
+                        { label: "Doctor:", value: selectedRx.extractedData?.doctorName || "—" },
+                        { label: "Patient:", value: selectedRx.extractedData?.patientName || "—" },
+                        { label: "Date:", value: selectedRx.extractedData?.date || "—" },
                       ].map((row, i) => (
                         <div key={i} className="flex items-center justify-between px-4 py-2.5">
                           <span className="text-xs text-ink-muted">{row.label}</span>
-                          <span className={`text-xs font-semibold ${row.color}`}>{row.value}</span>
+                          <span className="text-xs font-semibold text-ink">{row.value}</span>
                         </div>
                       ))}
                     </div>
                   </div>
+
+                  {/* Editable Medications */}
+                  <div>
+                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest mb-3">
+                      AI Extracted Medications — Edit to Correct
+                    </p>
+                    {editMeds.length === 0 ? (
+                      <p className="text-xs text-ink-muted">No medications extracted by AI.</p>
+                    ) : (
+                      editMeds.map((med, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-slate-200 rounded-xl p-3 mb-3 bg-surface-secondary"
+                        >
+                          <p className="text-[10px] font-bold text-brand-600 uppercase mb-2">
+                            Drug #{idx + 1}
+                          </p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              { key: "name", label: "Drug Name" },
+                              { key: "dosage", label: "Dosage" },
+                              { key: "frequency", label: "Frequency" },
+                              { key: "instructions", label: "Instructions" },
+                            ].map(({ key, label }) => (
+                              <div key={key}>
+                                <label className="text-[10px] text-ink-muted mb-0.5 block font-medium">
+                                  {label}
+                                </label>
+                                <input
+                                  value={med[key] || ""}
+                                  onChange={(e) =>
+                                    setEditMeds((prev) =>
+                                      prev.map((m, i) =>
+                                        i === idx ? { ...m, [key]: e.target.value } : m
+                                      )
+                                    )
+                                  }
+                                  className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 bg-white"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Action message */}
+                  {actionMsg && (
+                    <div
+                      className={`text-xs rounded-xl px-4 py-3 leading-relaxed ${
+                        actionMsg.type === "success"
+                          ? "bg-green-50 border border-green-200 text-green-700"
+                          : actionMsg.type === "warning"
+                          ? "bg-amber-50 border border-amber-200 text-amber-700"
+                          : "bg-red-50 border border-red-200 text-red-700"
+                      }`}
+                    >
+                      {actionMsg.text}
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="p-4 border-t border-slate-100 flex flex-col gap-2.5">
-                  <button onClick={handleApprove} className="btn-primary w-full justify-center">
-                    <CheckCircle2 size={15} />
-                    Approve & Publish Results
-                  </button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={handleReject} className="btn-secondary justify-center text-sm">
-                      Reject Scan
-                    </button>
-                    <button onClick={handleEscalate} className="btn-secondary justify-center text-sm">
-                      Escalate to Doctor
-                    </button>
-                  </div>
+                  {selectedRx.status === "awaiting_verification" ? (
+                    <>
+                      <button
+                        onClick={handleApprove}
+                        disabled={actionLoading}
+                        className="btn-primary w-full justify-center"
+                      >
+                        {actionLoading ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={15} />
+                        )}
+                        Approve & Resume AI Pipeline
+                      </button>
+                      <button
+                        onClick={handleReject}
+                        disabled={actionLoading}
+                        className="btn-secondary justify-center text-sm w-full"
+                      >
+                        Reject Scan
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center text-xs text-ink-muted py-2">
+                      This prescription has already been processed.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
