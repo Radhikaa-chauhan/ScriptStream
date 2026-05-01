@@ -68,21 +68,15 @@ The system accepts an image of a handwritten prescription, runs it through a 6-n
 
 ```
 ScriptStream/
-├── main.py               # FastAPI server — /analyze, /chat endpoints
-├── graph.py              # LangGraph StateGraph — nodes and edges
-├── state.py              # Shared TypedDict state schema
-├── agents/
-│   ├── vision.py         # OCR extraction via Vision LLM
-│   ├── safety.py         # Drug interaction detection
-│   ├── scheduler.py      # Daily dose schedule builder
-│   ├── verification.py   # Confidence score calculation
-│   └── chat.py           # MediChat with persistent memory
-├── core/
-│   └── rag_engine.py     # ChromaDB setup and drug lookup tool
-├── data/drug_profiles/   # Source files ingested into ChromaDB
-├── frontend/             # React dashboard
-├── requirements.txt
-└── Dockerfile
+│
+├── agent/              # Agent workflows & automation
+├── client/             # React (Vite) frontend
+├── server/             # Express + TypeScript backend
+├── planning/           # Architecture docs
+│
+├── package.json
+├── README.md
+└── .gitignore
 ```
 
 ---
