@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+const API_BASE = "http://localhost:8001/api";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -63,11 +63,17 @@ export const getPrescriptions = () => api.get("/prescriptions");
  */
 export const getPrescriptionById = (id) => api.get(`/prescriptions/${id}`);
 
-// ─── Admin (stubs — backend routes not yet implemented) ───────────────────────
 
-export const approveScan = (jobId, overrides) => api.post(`/admin/approve/${jobId}`, overrides);
-export const rejectScan = (jobId, reason) => api.post(`/admin/reject/${jobId}`, { reason });
-export const escalateScan = (jobId) => api.post(`/admin/escalate/${jobId}`);
+// ─── Admin Verification (resumes the LangGraph workflow after human review) ──
+
+/**
+ * POST /api/verify
+ * Resume the LangGraph pipeline after human approval.
+ * @param {string} prescriptionId - MongoDB _id of the prescription
+ * @param {object} extractedData - Corrected/confirmed extraction from the admin
+ */
+export const verifyScan = (prescriptionId, extractedData) =>
+  api.post("/verify", { prescriptionId, extractedData });
 
 // ─── Chat (stub — backend route not yet implemented) ──────────────────────────
 
@@ -79,3 +85,4 @@ export const escalateScan = (jobId) => api.post(`/admin/escalate/${jobId}`);
 export const sendChatMessage = (payload) => api.post("/chat", payload);
 
 export default api;
+

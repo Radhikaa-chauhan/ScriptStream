@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Send, Link, ExternalLink, AlertTriangle, ChevronRight } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
+import { sendChatMessage } from "../services/api";
 
 const quickReplies = [
   "Tell me about side effects",
@@ -12,23 +13,6 @@ const quickReplies = [
   "Missing a dose protocol",
 ];
 
-const initialMessages = [
-  {
-    role: "assistant",
-    text: "Hello Alex! I've analyzed your prescription for Amoxicillin 500mg. How can I help you understand this medication today?",
-    time: "10:00 AM",
-    context: "Context: Prescription #MS-882",
-  },
-];
-
-const botResponses = {
-  "Tell me about side effects": "Common side effects of Amoxicillin include nausea, diarrhea, and skin rash. Serious but rare effects include allergic reactions. Stop immediately if you experience difficulty breathing or severe skin reactions.",
-  "How should I take this?": "Take Amoxicillin every 8 hours as prescribed. You can take it with or without food. Complete the full course even if symptoms improve early to prevent antibiotic resistance.",
-  "Is it safe with alcohol?": "While alcohol doesn't directly interact with Amoxicillin, it can worsen side effects and impair your immune response. It's best to avoid alcohol during your treatment course.",
-  "Show clinical studies": "Amoxicillin has extensive clinical backing. A 2022 meta-analysis confirmed 94% efficacy for bacterial infections when completing the full course. FDA classification: Category B for safety.",
-  "Missing a dose protocol": "If you miss a dose, take it as soon as you remember. If it's almost time for your next dose, skip the missed one. Never double-dose. Set phone reminders to avoid missing future doses.",
-};
-
 const getTime = () => {
   const now = new Date();
   return now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -36,7 +20,17 @@ const getTime = () => {
 
 export default function MediChat() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState(initialMessages);
+  const location = useLocation();
+  const prescriptionId = location.state?.prescriptionId;
+
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      text: "Hello! I'm MediScript. Ask me anything about your newly digitized prescription.",
+      time: getTime(),
+    }
+  ]);
+  
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
@@ -45,23 +39,38 @@ export default function MediChat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     if (!text.trim()) return;
+    if (!prescriptionId) {
+      alert("Error: No prescription context found. Go back and select a prescription.");
+      return;
+    }
+
     const userMsg = { role: "user", text, time: getTime() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setTyping(true);
 
-    setTimeout(() => {
-      const reply =
-        botResponses[text] ||
-        "I'm analyzing your prescription context to give you the most accurate clinical information. Could you be more specific about your question?";
+    try {
+      const response = await sendChatMessage({
+        prescriptionId,
+        message: text,
+        history: messages
+      });
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: reply, time: getTime(), context: "Context: Prescription #MS-882" },
+        { role: "assistant", text: response.data.reply, time: getTime(), context: `Context: Rx #${prescriptionId.slice(-6)}` },
       ]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: "I'm sorry, I encountered an error connecting to the clinical database.", time: getTime() },
+      ]);
+    } finally {
       setTyping(false);
-    }, 1200);
+    }
   };
 
   return (

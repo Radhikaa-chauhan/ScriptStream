@@ -3,59 +3,75 @@ import { io } from "socket.io-client";
 
 /**
  * useSocket — connects to the backend Socket.io server
- * and listens for job progress events.
+ * and listens for LangGraph AI status events.
  *
- * Usage:
- *   const { status, progress, logs, error } = useSocket(jobId);
+ * Backend emits: ai_status → { status, log, timestamp }
  *
- * Backend emits these events on the job room:
- *   job:queued     → { jobId }
- *   job:processing → { jobId, step, progress (0-100) }
- *   job:completed  → { jobId, result }
- *   job:failed     → { jobId, error }
- *   log            → { time, level, msg }
+ * status values emitted by nodes:
+ *   "processing" | "success" | "warning" | "waiting" | "completed" | "failed"
  */
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:4000";
+const SOCKET_URL = "http://localhost:8000";
 
 export function useSocket(jobId) {
   const socketRef = useRef(null);
-  const [status, setStatus] = useState("idle"); // idle | queued | processing | completed | failed
+  const [status, setStatus] = useState("idle");
   const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState([]);   // array of { time, level, msg }
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!jobId) return;
-
+    // Connect even without a jobId so we can receive broadcast updates
     const socket = io(SOCKET_URL, {
-      query: { jobId },
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
     });
     socketRef.current = socket;
 
     socket.on("connect", () => console.log("[socket] connected"));
-    socket.on("job:queued", () => setStatus("queued"));
-    socket.on("job:processing", ({ step, progress }) => {
-      setStatus("processing");
-      setProgress(progress);
+
+    // ── Primary event from LangGraph nodes ──────────────────────────────
+    socket.on("ai_status", ({ status: s, log, timestamp }) => {
+      // Map server status → UI status
+      if (s === "completed" || s === "done") setStatus("completed");
+      else if (s === "failed") setStatus("failed");
+      else if (s === "waiting") setStatus("waiting"); // paused at verification
+      else setStatus("processing");
+
+      // Fake progress based on known steps
+      if (s === "success") setProgress((p) => Math.min(p + 15, 90));
+
+      // Normalize log to { time, level, msg } shape Processing.jsx expects
+      const now = timestamp ? new Date(timestamp) : new Date();
+      const timeStr = now.toLocaleTimeString("en-US", { hour12: false });
+
+      let level = "INFO";
+      if (s === "success") level = "SUCCESS";
+      else if (s === "warning") level = "WARN";
+      else if (s === "failed") level = "ERROR";
+      else if (s === "waiting") level = "WAIT";
+
+      setLogs((prev) => [...prev, { time: timeStr, level, msg: log }]);
     });
-    socket.on("job:completed", ({ result }) => {
+
+    // Legacy event names (keep for compatibility)
+    socket.on("job:queued", () => setStatus("queued"));
+    socket.on("job:processing", ({ progress: p }) => {
+      setStatus("processing");
+      if (p != null) setProgress(p);
+    });
+    socket.on("job:completed", ({ result: r }) => {
       setStatus("completed");
-      setResult(result);
+      setResult(r);
       setProgress(100);
     });
-    socket.on("job:failed", ({ error }) => {
+    socket.on("job:failed", ({ error: e }) => {
       setStatus("failed");
-      setError(error);
-    });
-    socket.on("log", (logEntry) => {
-      setLogs((prev) => [...prev, logEntry]);
+      setError(e);
     });
 
     return () => socket.disconnect();
-  }, [jobId]);
+  }, []); // intentionally no jobId dep — server broadcasts to all
 
   return { status, progress, logs, result, error };
 }

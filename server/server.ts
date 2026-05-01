@@ -8,9 +8,12 @@ import apiRoutes from "./src/api/routes";
 import { initSockets } from "./src/sockets/socketEvents";
 import { ingestDrugs } from "./src/rag/drugDatabase";
 
+console.log("[SERVER] Loading server.ts...");
 dotenv.config();
+console.log("[SERVER] Environment loaded");
 
 const app = express();
+console.log("[SERVER] Express app created");
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -22,19 +25,32 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+app.get("/", (req, res) => {
+  res.send("Welcome to ScriptStream API");
+});
+
 // Initialize API Routes
+console.log("[SERVER] Initializing API routes...");
 app.use("/api", apiRoutes);
+console.log("[SERVER] API routes ready");
 
 // Initialize Socket.io
+console.log("[SERVER] Initializing Socket.io...");
 initSockets(io);
+console.log("[SERVER] Socket.io initialized");
 
-// Export for backward compatibility with old graph nodes if they import emitStatus from server.ts directly
-export { emitStatus } from "./src/sockets/socketEvents";
+// Initialize BullMQ Worker
+import "./src/workers/graphWorker";
 
-const PORT = process.env.PORT || 5000;
+// Legacy export removed to prevent circular dependencies
+
+const PORT = process.env.PORT || 8000;
 
 const startServer = async () => {
   try {
+    console.log("[SERVER] Starting server...");
     await connectDB(); // Ensure MongoDB URI is in .env
 
     // Bootstrap ChromaDB drug database (idempotent — skips if already seeded)
@@ -48,9 +64,8 @@ const startServer = async () => {
       console.log(`ScriptStream Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("[SERVER] ❌ Failed to start server:", error);
   }
 };
 
 startServer();
-

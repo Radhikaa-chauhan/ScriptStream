@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
   Phone,
@@ -53,6 +53,8 @@ const StatusIcon = ({ status }) => {
 
 export default function AnalysisResults() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prescriptionId = location.state?.prescriptionId;
   const [alertDismissed, setAlertDismissed] = useState(false);
 
   return (
@@ -69,7 +71,7 @@ export default function AnalysisResults() {
               Upload History
             </button>
             <span>›</span>
-            <span className="text-ink font-medium">Batch #RX-2024-881</span>
+            <span className="text-ink font-medium">Rx #{prescriptionId ? prescriptionId.slice(-8) : "2024-881"}</span>
           </div>
 
           <div className="flex items-center justify-between mb-5">
@@ -114,7 +116,7 @@ export default function AnalysisResults() {
                     Contact Doctor
                   </button>
                   <button
-                    onClick={() => navigate("/chat")}
+                    onClick={() => navigate("/chat", { state: { prescriptionId } })}
                     className="btn-secondary text-xs py-1.5 px-3"
                   >
                     <MessageSquare size={13} />

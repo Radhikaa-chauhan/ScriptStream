@@ -1,10 +1,10 @@
-import { anthropic, withRetry } from "../../utils/anthropic";
+import { gemini, withRetryGemini } from "../../utils/gemini";
 import { State } from "../state";
-import { emitStatus } from "../../../server";
+import { emitStatus } from "../../sockets/socketEvents";
 import { z } from "zod";
 
 const SafetyWarningsSchema = z.object({
-  warnings: z.array(z.string())
+  warnings: z.array(z.string()),
 });
 
 /**
@@ -13,76 +13,97 @@ const SafetyWarningsSchema = z.object({
  * to flag dangerous interactions.
  */
 export const safetyNode = async (state: State) => {
-  emitStatus("processing", "Safety Agent: Checking for dangerous drug interactions...");
+  console.log("[SAFETY] Starting safety node...");
+  emitStatus(
+    "processing",
+    "Safety Agent: Checking for dangerous drug interactions...",
+  );
 
   // If no medications were extracted, we can skip safety checks.
   if (!state.extractedData || state.extractedData.medications.length === 0) {
+    console.log("[SAFETY] No medications to analyze, skipping safety checks");
     return {
       safetyWarnings: ["No medications found to analyze."],
-      executionLogs: [...state.executionLogs, "Safety Agent: Skipped (no medications)."],
-      status: "safety_check_complete"
+      executionLogs: [
+        ...state.executionLogs,
+        "Safety Agent: Skipped (no medications).",
+      ],
+      status: "safety_check_complete",
     };
   }
 
-  const medicationNames = state.extractedData.medications.map(m => m.name).join(", ");
-
-  const toolDefinition = {
-    name: "flag_safety_interactions",
-    description: "Identify severe drug interactions based on the provided medical context.",
-    input_schema: {
-      type: "object",
-      properties: {
-        warnings: {
-          type: "array",
-          items: { type: "string", description: "A clear warning message about a specific interaction." },
-          description: "List of identified drug-drug or drug-condition interactions."
-        }
-      },
-      required: ["warnings"]
-    }
-  };
+  const medicationNames = state.extractedData.medications
+    .map((m) => m.name)
+    .join(", ");
+  console.log("[SAFETY] Analyzing medications:", medicationNames);
 
   const runSafetyAgent = async () => {
-    return await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
-      max_tokens: 1500,
-      system: "You are an expert clinical pharmacist AI. Review the medications and RAG context using the flag_safety_interactions tool. If no severe interactions are found, return an empty array.",
-      tools: [toolDefinition as any],
-      tool_choice: { type: "tool", name: "flag_safety_interactions" },
-      messages: [
-        {
-          role: "user",
-          content: `Medications to evaluate: ${medicationNames}\n\nMedical Literature (RAG Context):\n${state.ragContext || "No specific literature found for these drugs."}\n\nEvaluate the safety of this combination.`,
-        },
-      ],
+    return await gemini.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `You are an expert clinical pharmacist AI. Review the medications and RAG context to identify drug interaction warnings. Return ONLY a valid JSON object with no markdown formatting.
+
+Medications to evaluate: ${medicationNames}
+
+Medical Literature (RAG Context):
+${state.ragContext || "No specific literature found for these drugs."}
+
+Return a JSON object like this:
+{
+  "warnings": ["warning1", "warning2"]
+}
+
+If no severe interactions are found, return an empty array.`,
     });
   };
 
   try {
-    const response = await withRetry(runSafetyAgent);
-    
-    const toolUse = response.content.find((c: any) => c.type === "tool_use") as any;
-    
-    if (!toolUse) {
-      throw new Error("Safety Agent failed to use the warning tool.");
+    const response = await withRetryGemini(runSafetyAgent);
+
+    // Extract text from Gemini response
+    const responseText = response.text || "";
+
+    if (!responseText) {
+      throw new Error("Safety Agent returned empty response.");
     }
 
-    // Validate with Zod
-    const { warnings } = SafetyWarningsSchema.parse(toolUse.input);
-    
-    if (warnings.length > 0) {
-      emitStatus("warning", `Safety Agent: Found ${warnings.length} potential interaction(s).`);
-    } else {
-      emitStatus("success", "Safety Agent: No dangerous interactions detected.");
+    // Parse JSON from response (handle potential markdown formatting)
+    let jsonStr = responseText.trim();
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
     }
-    
+
+    const parsedResponse = JSON.parse(jsonStr);
+
+    // Validate with Zod
+    const { warnings } = SafetyWarningsSchema.parse(parsedResponse);
+
+    if (warnings.length > 0) {
+      emitStatus(
+        "warning",
+        `Safety Agent: Found ${warnings.length} potential interaction(s).`,
+      );
+    } else {
+      emitStatus(
+        "success",
+        "Safety Agent: No dangerous interactions detected.",
+      );
+    }
+
     return {
       safetyWarnings: [...state.safetyWarnings, ...warnings],
-      executionLogs: [...state.executionLogs, "Safety Agent: Evaluation complete with Tool Calling."],
-      status: "safety_check_complete"
+      executionLogs: [
+        ...state.executionLogs,
+        "Safety Agent: Evaluation complete with Gemini JSON parsing.",
+      ],
+      status: "safety_check_complete",
     };
   } catch (error: any) {
-    emitStatus("error", `Safety Agent: ${error.message || "Failed to analyze safety."}`);
+    emitStatus(
+      "error",
+      `Safety Agent: ${error.message || "Failed to analyze safety."}`,
+    );
     throw error;
   }
 };

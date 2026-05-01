@@ -59,7 +59,13 @@ const logLines = [
   { time: "14:22:16", level: "INFO", msg: "→ __PROCESSING_DATA_PACKETS..." },
 ];
 
-const levelColor = { INFO: "text-blue-400", SUCCESS: "text-green-400", WARN: "text-yellow-400" };
+const levelColor = {
+  INFO:    "text-blue-400",
+  SUCCESS: "text-green-400",
+  WARN:    "text-yellow-400",
+  WAIT:    "text-purple-400",
+  ERROR:   "text-red-400",
+};
 
 export default function Processing() {
   const navigate = useNavigate();
@@ -82,10 +88,14 @@ export default function Processing() {
     }
   }, [socketStatus, socketResult, setAnalysisResult, navigate]);
 
-  // Append socket logs to visible logs
+  // Append socket logs to visible logs (real logs replace fake ones)
   useEffect(() => {
     if (socketLogs.length > 0) {
       setVisibleLogs(socketLogs);
+      // Auto-scroll
+      if (logRef.current) {
+        logRef.current.scrollTop = logRef.current.scrollHeight;
+      }
     }
   }, [socketLogs]);
 
@@ -93,13 +103,19 @@ export default function Processing() {
     pausedRef.current = paused;
   }, [paused]);
 
-  // Reveal logs one by one
+  // Reveal fake logs one-by-one ONLY if no real socket logs have arrived yet
   useEffect(() => {
+    // If real logs are streaming in, don't show fake ones
+    if (socketLogs.length > 0) return;
     let idx = 0;
     const interval = setInterval(() => {
       if (pausedRef.current) return;
       if (idx < logLines.length) {
-        setVisibleLogs((prev) => [...prev, logLines[idx]]);
+        setVisibleLogs((prev) => {
+          // Stop injecting fake logs once real ones start
+          if (socketLogs.length > 0) return prev;
+          return [...prev, logLines[idx]];
+        });
         idx++;
         if (logRef.current) {
           logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -107,16 +123,21 @@ export default function Processing() {
       }
     }, 800);
     return () => clearInterval(interval);
-  }, []);
+  }, [socketLogs.length]);
 
-  // Step progression
+  // Step progression animation
+  // IMPORTANT: When a real prescriptionId is set, do NOT auto-navigate at the end —
+  // the socket controls navigation. The animation just shows visual progress.
   useEffect(() => {
     let stepIdx = 0;
     let elapsed = 0;
-    const totalDur = steps[stepIdx].duration;
 
     const tick = setInterval(() => {
       if (pausedRef.current) return;
+      // If graph is waiting for verification, freeze animation at step 0
+      if (socketStatus === "waiting") return;
+
+      const totalDur = steps[stepIdx].duration;
       elapsed += 100;
       const pct = Math.min((elapsed / totalDur) * 100, 100);
       setStepProgress(pct);
@@ -129,13 +150,16 @@ export default function Processing() {
           setStepProgress(0);
         } else {
           clearInterval(tick);
-          setTimeout(() => navigate("/results"), 800);
+          // Only auto-navigate in demo mode (no real prescriptionId)
+          if (!prescriptionId) {
+            setTimeout(() => navigate("/results"), 800);
+          }
         }
       }
     }, 100);
 
     return () => clearInterval(tick);
-  }, [navigate]);
+  }, [navigate, prescriptionId, socketStatus]);
 
   // ETA countdown
   useEffect(() => {
@@ -153,14 +177,43 @@ export default function Processing() {
           {/* Header */}
           <div className="flex items-center gap-3 mb-1">
             <h1 className="font-display text-2xl font-bold text-ink">Processing Prescription</h1>
-            <span className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-1 rounded-full">
-              <span className="live-dot" style={{ background: "#ef4444" }} />
-              LIVE
-            </span>
+            {socketStatus === "waiting" ? (
+              <span className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold px-3 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse inline-block" />
+                AWAITING REVIEW
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-1 rounded-full">
+                <span className="live-dot" style={{ background: "#ef4444" }} />
+                LIVE
+              </span>
+            )}
           </div>
-          <p className="text-sm text-ink-secondary mb-6">
+          <p className="text-sm text-ink-secondary mb-4">
             Our clinical RAG-engine is currently analyzing your handwritten upload for accuracy, interactions, and scheduling.
           </p>
+
+          {/* Verification waiting banner */}
+          {socketStatus === "waiting" && (
+            <div className="flex items-start gap-4 bg-purple-50 border border-purple-200 rounded-2xl px-5 py-4 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <Pause size={16} className="text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-purple-800">AI Pipeline paused — awaiting admin verification</p>
+                <p className="text-xs text-purple-600 mt-0.5 leading-relaxed">
+                  The Vision Agent has extracted medication data and is waiting for a clinician to review and confirm accuracy before the Safety, RAG, and Scheduling agents continue.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate("/admin")}
+                className="btn-primary text-xs py-2 flex-shrink-0"
+              >
+                Go to Admin Panel →
+              </button>
+            </div>
+          )}
+
 
           <div className="grid grid-cols-[1fr_380px] gap-5">
             {/* Steps */}
@@ -276,15 +329,22 @@ export default function Processing() {
                   ref={logRef}
                   className="p-4 h-80 overflow-y-auto flex flex-col gap-1"
                 >
-                  {visibleLogs.map((log, i) => (
-                    <div key={i} className="terminal-log flex gap-3 animate-fade-in">
-                      <span className="text-gray-500 flex-shrink-0">{log.time}</span>
-                      <span className={`flex-shrink-0 font-bold ${levelColor[log.level]}`}>
-                        [{log.level}]
-                      </span>
-                      <span className="text-gray-300">{log.msg}</span>
-                    </div>
-                  ))}
+                  {visibleLogs.filter(Boolean).map((log, i) => {
+                    // Normalize: socket might send a plain string, always safe
+                    const isObj = log && typeof log === "object";
+                    const time = isObj ? log.time : "";
+                    const level = isObj ? (log.level || "INFO") : "INFO";
+                    const msg = isObj ? log.msg : String(log);
+                    return (
+                      <div key={i} className="terminal-log flex gap-3 animate-fade-in">
+                        <span className="text-gray-500 flex-shrink-0">{time}</span>
+                        <span className={`flex-shrink-0 font-bold ${levelColor[level] || "text-gray-400"}`}>
+                          [{level}]
+                        </span>
+                        <span className="text-gray-300">{msg}</span>
+                      </div>
+                    );
+                  })}
                   {/* Blinking cursor */}
                   <div className="terminal-log text-green-400 mt-1">
                     <span className="animate-blink">█</span>

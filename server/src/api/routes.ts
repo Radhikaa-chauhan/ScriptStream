@@ -2,7 +2,7 @@ import { Router } from "express";
 import { register, login, authenticateJWT, AuthRequest } from "./auth";
 import { graph } from "../graph/graph";
 import { Prescription } from "../database/models";
-import mongoose from "mongoose";
+import { analysisQueue } from "../workers/graphWorker";
 
 const router = Router();
 
@@ -13,12 +13,15 @@ router.post("/auth/login", login as any);
 // AI Trigger Route
 router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: any) => {
   try {
+    console.log("[ROUTES] /analyze endpoint called");
     const { image } = req.body;
     if (!image) {
+      console.log("[ROUTES] ❌ No image provided");
       return res.status(400).json({ message: "Image is required" });
     }
 
     const userId = req.user?.id;
+    console.log("[ROUTES] User ID:", userId);
 
     // Create an initial prescription record
     const newPrescription = new Prescription({
@@ -28,37 +31,15 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
     });
     await newPrescription.save();
 
-    // Trigger LangGraph Workflow
-    // In a real app, this might be offloaded to a queue (like BullMQ)
-    // to prevent holding the HTTP connection open for too long.
-    // For V1 MVP, we trigger it directly or asynchronously.
-    
-    // Fire and forget (async) to not block the response
-    const runGraph = async () => {
-      try {
-        const result = await graph.invoke({
-           prescriptionImage: image,
-           status: "started",
-           extractedData: { medications: [] },
-           safetyWarnings: [],
-           schedule: { morning: [], afternoon: [], evening: [], night: [], notes: [] }
-        });
-
-        // Update prescription with result
-        await Prescription.findByIdAndUpdate(newPrescription._id, {
-           extractedData: result.extractedData,
-           dailySchedule: result.schedule,
-           safetyWarnings: result.safetyWarnings,
-           status: "processed"
-        });
-
-      } catch (error) {
-        console.error("Graph execution error:", error);
-        await Prescription.findByIdAndUpdate(newPrescription._id, { status: "failed" });
-      }
-    };
-
-    runGraph();
+    console.log("[ROUTES] Prescription created:", newPrescription._id);
+    // Add job to BullMQ queue
+    console.log("[ROUTES] Adding job to BullMQ queue...");
+    await analysisQueue.add("analyze-job", {
+      type: "start_analysis",
+      prescriptionId: newPrescription._id.toString(),
+      image
+    });
+    console.log("[ROUTES] ✅ Job added to queue");
 
     return res.status(202).json({
       message: "Analysis started",
@@ -66,7 +47,38 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
     });
 
   } catch (error) {
-    console.error("Analysis route error:", error);
+    console.error("[ROUTES] ❌ Analysis route error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// AI Verify/Resume Route
+router.post("/verify", authenticateJWT as any, async (req: AuthRequest, res: any) => {
+  try {
+    const { prescriptionId, extractedData } = req.body;
+
+    if (!prescriptionId || !extractedData) {
+      return res.status(400).json({ message: "prescriptionId and extractedData are required" });
+    }
+
+    const config = { configurable: { thread_id: prescriptionId } };
+
+    // Update the state with the human-verified data
+    await graph.updateState(config, {
+      extractedData: extractedData,
+      status: "verified"
+    });
+
+    // Enqueue job to resume processing
+    await analysisQueue.add("resume-job", {
+      type: "resume_analysis",
+      prescriptionId
+    });
+
+    return res.status(202).json({ message: "Verification received, resuming analysis." });
+
+  } catch (error) {
+    console.error("Verify route error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -79,6 +91,58 @@ router.get("/prescriptions", authenticateJWT as any, async (req: AuthRequest, re
     return res.json({ prescriptions: history });
   } catch (error) {
     console.error("Fetch history error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+import { gemini, withRetryGemini } from "../utils/gemini";
+
+// Live Clinical Chat Route
+router.post("/chat", authenticateJWT as any, async (req: AuthRequest, res: any) => {
+  try {
+    const { prescriptionId, message, history } = req.body;
+    
+    if (!prescriptionId || !message) {
+      return res.status(400).json({ message: "prescriptionId and message are required" });
+    }
+
+    const userId = req.user?.id;
+    const prescription = await Prescription.findOne({ _id: prescriptionId, userId });
+
+    if (!prescription) {
+      return res.status(404).json({ message: "Prescription not found or unauthorized" });
+    }
+
+    const systemPrompt = `You are a helpful medical assistant AI named MediScript.
+You are answering a patient's questions about their newly generated medication schedule and safety warnings.
+
+CONTEXT:
+Medications: ${JSON.stringify(prescription.extractedData?.medications || [])}
+Schedule: ${JSON.stringify(prescription.dailySchedule || {})}
+Safety Warnings: ${JSON.stringify(prescription.safetyWarnings || [])}
+
+CRITICAL RULES:
+1. Base your answers ONLY on the provided context.
+2. If the patient asks something outside this context, politely remind them you can only discuss their current prescription.
+3. Be empathetic, clear, and concise.
+4. Always remind them to consult their actual doctor for medical advice.`;
+
+    // Build conversation history with system prompt
+    const prompt = `${systemPrompt}\n\nUser Message: ${message}`;
+
+    const response = await withRetryGemini(async () => {
+      return await gemini.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: prompt,
+      });
+    });
+
+    return res.json({ 
+      reply: response.text || "I'm sorry, I couldn't generate a text response." 
+    });
+
+  } catch (error) {
+    console.error("Chat route error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

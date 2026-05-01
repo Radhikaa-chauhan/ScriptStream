@@ -1,27 +1,24 @@
-import { ChatAnthropic } from "@langchain/anthropic";
+import { gemini, withRetryGemini } from "../../utils/gemini";
 import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 import { State } from "../state";
 
 /**
  * Chat Engine Node
- * Handles the conversational loop, allowing patients to ask follow-up questions
- * about their specific prescription. Maintains conversation history using LangChain BaseMessages.
+ * Handles the conversational loop using Gemini instead of Anthropic
  */
 export const chatNode = async (state: State) => {
+  console.log("[CHAT] Starting chat node...");
   const chatHistory = state.chatHistory || [];
-  
+  console.log("[CHAT] Chat history length:", chatHistory.length);
+
   // We only run the chat if the last message was from the user
   if (chatHistory.length === 0 || chatHistory[chatHistory.length - 1]._getType() !== "human") {
+    console.log("[CHAT] No user message in history, chat idle");
     return { status: "chat_idle" };
   }
+  console.log("[CHAT] Processing user message...");
 
-  const model = new ChatAnthropic({
-    modelName: "claude-3-5-sonnet-20240620",
-    maxTokens: 1000,
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-
-  const systemContext = new SystemMessage(`You are a helpful medical assistant AI named ScriptStream.
+  const systemContext = `You are a helpful medical assistant AI named MediScript.
   You are answering a patient's questions about their newly generated medication schedule and safety warnings.
   
   CONTEXT:
@@ -33,15 +30,41 @@ export const chatNode = async (state: State) => {
   1. Base your answers ONLY on the provided context.
   2. If the patient asks something outside this context, politely remind them you can only discuss their current prescription.
   3. Be empathetic, clear, and concise.
-  4. Always remind them to consult their actual doctor for medical advice.`);
+  4. Always remind them to consult their actual doctor for medical advice.`;
 
   try {
-    // Pass the system message plus the entire chat history
-    const response = await model.invoke([systemContext, ...chatHistory]);
+    // Extract the last user message
+    const lastMessage = chatHistory[chatHistory.length - 1];
+    const userQuestion = lastMessage.content || "";
 
-    // Append the assistant's reply to the chat history
+    // Build conversation history for Gemini
+    const conversationHistory = chatHistory
+      .slice(0, -1)
+      .map((msg: any) => {
+        const role = msg._getType() === "human" ? "user" : "model";
+        return { role, parts: [{ text: msg.content || "" }] };
+      });
+
+    // Add system context and user question
+    const prompt = `${systemContext}\n\nUser Question: ${userQuestion}`;
+
+    const response = await withRetryGemini(async () => {
+      return await gemini.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+    });
+
+    const assistantReply = response.text || "";
+
+    // Create AIMessage for compatibility with state
+    const aiMessage = new AIMessage({
+      content: assistantReply || "I apologize, but I couldn't generate a response.",
+      additional_kwargs: {}
+    });
+
     return {
-      chatHistory: [response], // The reducer in state.ts will concat this to the existing array
+      chatHistory: [aiMessage],
       status: "chat_replied"
     };
   } catch (error) {
