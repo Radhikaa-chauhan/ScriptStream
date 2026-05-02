@@ -147,7 +147,11 @@ CRITICAL RULES:
 4. Always remind them to consult their actual doctor for medical advice.`;
 
     // Build conversation history with system prompt
-    const prompt = `${systemPrompt}\n\nUser Message: ${message}`;
+    const chatHistory = (history || [])
+      .map((msg: any) => `${msg.role === "assistant" ? "MediScript" : "User"}: ${msg.text}`)
+      .join("\n");
+
+    const prompt = `${systemPrompt}\n\nConversation History:\n${chatHistory}\n\nUser Message: ${message}\n\nAssistant Response:`;
 
     const reply = await askAI(prompt);
 

@@ -20,7 +20,7 @@ console.log("[AI] ✅ OpenRouter client ready");
  * ✅ FREE MODELS (TEXT)
  */
 const TEXT_MODELS = [
-  "tencent/hy3-preview:free"
+  "tencent/hy3-preview:free",
 ];
 
 /**

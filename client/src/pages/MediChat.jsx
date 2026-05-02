@@ -15,6 +15,8 @@ const quickReplies = [
   "Missing a dose protocol",
 ];
 
+import { useApp } from "../context/AppContext";
+
 const getTime = () => {
   const now = new Date();
   return now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -24,7 +26,8 @@ export default function MediChat() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const prescriptionId = location.state?.prescriptionId;
+  const { prescriptionId: globalPrescriptionId } = useApp();
+  const prescriptionId = location.state?.prescriptionId || globalPrescriptionId;
   const userInitials = user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U";
 
   const [messages, setMessages] = useState([
@@ -79,9 +82,28 @@ export default function MediChat() {
 
   return (
     <AppLayout>
-      <div className="flex gap-5 h-[calc(100vh-112px)]">
+      <div className="flex gap-5 h-[calc(100vh-112px)] relative">
+        {!prescriptionId && (
+          <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center text-center p-8 animate-fade-in border border-slate-100">
+            <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h2 className="font-display font-bold text-xl text-ink mb-2">No Prescription Selected</h2>
+            <p className="text-ink-secondary text-sm max-w-xs mb-6">
+              To chat with your clinical assistant, please select a prescription from your records first.
+            </p>
+            <button
+              onClick={() => navigate("/prescriptions")}
+              className="btn-primary"
+            >
+              View My Prescriptions
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Main chat area */}
-        <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
+        <div className={`flex-1 flex flex-col bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden ${!prescriptionId ? 'opacity-20 pointer-events-none' : ''}`}>
           {/* Chat header */}
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <div>
@@ -93,9 +115,9 @@ export default function MediChat() {
             </div>
             <div className="flex items-center gap-3 text-xs">
               <span className="font-mono bg-surface-secondary px-2.5 py-1 rounded-lg text-ink font-semibold border border-slate-100">
-                Rx: MS-882
+                Rx: {prescriptionId ? `#${prescriptionId.slice(-6)}` : 'Select Rx'}
               </span>
-              <button className="text-brand-600 font-semibold hover:underline">History</button>
+              <button onClick={() => navigate("/prescriptions")} className="text-brand-600 font-semibold hover:underline">History</button>
             </div>
           </div>
 
@@ -210,7 +232,7 @@ export default function MediChat() {
         </div>
 
         {/* Right panel: RAG reference */}
-        <div className="w-72 flex flex-col gap-4 overflow-y-auto">
+        <div className={`w-72 flex flex-col gap-4 overflow-y-auto ${!prescriptionId ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="card">
             <div className="flex items-center gap-1.5 mb-3">
               <span className="text-brand-500 font-bold text-xs">✦</span>
@@ -218,7 +240,9 @@ export default function MediChat() {
             </div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-base">💊</span>
-              <h3 className="font-display font-bold text-base text-ink">Amoxicillin 500mg</h3>
+              <h3 className="font-display font-bold text-base text-ink">
+                {prescriptionId ? 'Active Reference' : 'Medication info'}
+              </h3>
             </div>
             <p className="text-xs text-ink-muted mb-3 leading-relaxed">
               Digital Clinical Assistant is referencing the latest drug database for your prescription.
@@ -228,8 +252,10 @@ export default function MediChat() {
               <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2">Linked Context</p>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-xs font-semibold text-ink">1 capsule every 8 hours</p>
-                  <p className="text-xs text-ink-muted">Dr. Sara</p>
+                  <p className="text-xs font-semibold text-ink">
+                    {prescriptionId ? `Rx #${prescriptionId.slice(-6)}` : 'No Rx linked'}
+                  </p>
+                  <p className="text-xs text-ink-muted">Clinical Context</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs flex items-center gap-1 text-green-600 font-semibold">
@@ -239,45 +265,6 @@ export default function MediChat() {
                   <button className="text-[10px] text-brand-600 hover:underline mt-0.5">View Full</button>
                 </div>
               </div>
-            </div>
-
-            <div className="border-t border-slate-100 pt-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-xs">🕐</span>
-                <p className="text-xs font-bold text-ink">Optimal Usage</p>
-              </div>
-              <p className="text-xs text-ink-secondary leading-relaxed">
-                Take with food to prevent gastrointestinal upset. Complete the full course as prescribed (7 days) even if symptoms improve early. Avoid dairy products within 2 hours of ingestion.
-              </p>
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 mt-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-xs">⚠️</span>
-                <p className="text-xs font-bold text-ink">Potential Interactions</p>
-              </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2">
-                <p className="text-xs text-amber-700">
-                  <span className="font-bold">Warning:</span> Alcohol consumption may significantly increase the risk of dizziness and nausea.
-                </p>
-              </div>
-              {[
-                "Avoid taking with magnesium-based antacids.",
-                "May decrease effectiveness of oral contraceptives.",
-                "Moderate interaction with caffeine-rich beverages.",
-              ].map((item, i) => (
-                <p key={i} className="text-xs text-ink-secondary flex items-start gap-1.5 mt-1.5">
-                  <span className="text-slate-400 mt-0.5 flex-shrink-0">•</span>
-                  {item}
-                </p>
-              ))}
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 mt-3">
-              <button className="flex items-center gap-1.5 text-xs text-brand-600 font-semibold hover:underline">
-                <ExternalLink size={11} />
-                Open Official FDA Medication Guide
-              </button>
             </div>
           </div>
         </div>

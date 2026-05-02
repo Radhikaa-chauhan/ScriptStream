@@ -1,106 +1,56 @@
 import { State } from "../state";
 import { STATUS } from "../constants";
 import { emitStatus } from "../../sockets/socketEvents";
-import { sendScheduleEmail } from "../../utils/emailService";
-import {
-  sendWhatsAppNotification,
-  formatScheduleForWhatsApp,
-} from "../../utils/whatsapp";
+import { sendScheduleNotification } from "../../utils/notification";
 
-/**
- * Notification Node
- *
- * Triggers notifications after the medication schedule is finalized.
- * Sends email and WhatsApp messages with the schedule summary.
- *
- * Both channels are best-effort — failures are logged but never crash the pipeline.
- */
 export const notifyNode = async (state: State) => {
   emitStatus("processing", "Notification Agent: Preparing to send medication schedule...");
 
   const logs: string[] = [];
-  let emailSuccess = false;
-  let whatsappSuccess = false;
+  let notifySuccess = false;
 
-  // ─── SMS Notification (Twilio) ──────────────────────────────────────────
-
-  // Phone and email come from the logged-in user's MongoDB profile
-  const patientEmail = state.patientEmail || process.env.PATIENT_EMAIL || "";
   const patientName = state.extractedData?.patientName || "Patient";
-  // patientPhone from state (user's DB profile) takes priority over .env fallback
   const patientPhone = state.patientPhone || process.env.PATIENT_PHONE || "";
 
-  if (patientPhone) {
-    emitStatus("processing", "Notification Agent: Sending SMS with medication schedule...");
+  // ─── Notification (n8n + Twilio fallback) ──────────────────────────
 
-    // sendScheduleEmail now sends SMS via Twilio
-    const smsResult = await sendScheduleEmail(
+  if (patientPhone) {
+    emitStatus("processing", "Notification Agent: Sending notification...");
+
+    const result = await sendScheduleNotification(
       patientPhone,
       state.schedule,
       patientName,
       state.safetyWarnings
     );
 
-    if (smsResult.success) {
-      emailSuccess = true;
-      logs.push(`Notification Agent: SMS sent to ${patientPhone} (SID: ${smsResult.messageId}).`);
-      emitStatus("success", `Notification Agent: SMS sent to ${patientPhone}.`);
+    if (result.success) {
+      notifySuccess = true;
+      logs.push(`Notification Agent: Sent to ${patientPhone} (ID: ${result.messageId}).`);
+      emitStatus("success", `Notification Agent: Sent to ${patientPhone}.`);
     } else {
-      logs.push(`Notification Agent: SMS failed — ${smsResult.error}`);
-      emitStatus("warning", `Notification Agent: SMS sending failed — ${smsResult.error}`);
+      logs.push(`Notification Agent: Failed — ${result.error}`);
+      emitStatus("warning", `Notification Agent: Failed — ${result.error}`);
     }
   } else {
-    logs.push("Notification Agent: No patient phone configured. Skipping SMS.");
-    emitStatus("info", "Notification Agent: No patient phone configured. Skipping.");
+    logs.push("Notification Agent: No patient phone configured.");
+    emitStatus("info", "Notification Agent: No patient phone configured.");
   }
 
-  // ─── WhatsApp Notification ──────────────────────────────────────────────
-
-  if (patientPhone) {
-    emitStatus("processing", "Notification Agent: Sending WhatsApp notification...");
-
-    const waPayload = formatScheduleForWhatsApp(
-      state.schedule,
-      patientName,
-      state.safetyWarnings
-    );
-    waPayload.phoneNumber = patientPhone;
-
-    const waResult = await sendWhatsAppNotification(waPayload);
-
-    if (waResult.success) {
-      whatsappSuccess = true;
-      logs.push(
-        `Notification Agent: WhatsApp sent to ${patientPhone} (SID: ${waResult.messageSid}).`
-      );
-      emitStatus("success", "Notification Agent: WhatsApp notification sent.");
-    } else {
-      logs.push(`Notification Agent: WhatsApp failed — ${waResult.error}`);
-      emitStatus("warning", `Notification Agent: WhatsApp failed — ${waResult.error}`);
-    }
-  } else {
-    logs.push("Notification Agent: No patient phone configured. Skipping WhatsApp.");
-    emitStatus("info", "Notification Agent: No patient phone configured. Skipping.");
-  }
-
-  // ─── Summary ────────────────────────────────────────────────────────────
-
-  const channels = [];
-  if (emailSuccess) channels.push("Email");
-  if (whatsappSuccess) channels.push("WhatsApp");
+  // ─── Summary ─────────────────────────────────────────
 
   const summary =
-    channels.length > 0
-      ? `Notification Agent: Delivered via ${channels.join(" + ")}.`
-      : "Notification Agent: No notifications were sent (no channels configured).";
+    notifySuccess
+      ? "Notification Agent: Delivered successfully."
+      : "Notification Agent: No notifications were sent.";
 
   emitStatus(
-    channels.length > 0 ? "success" : "warning",
+    notifySuccess ? "success" : "warning",
     summary
   );
 
   return {
     executionLogs: [...state.executionLogs, ...logs, summary],
-    status: channels.length > 0 ? STATUS.NOTIFIED : STATUS.NOTIFY_PARTIAL,
+    status: notifySuccess ? STATUS.NOTIFIED : STATUS.NOTIFY_PARTIAL,
   };
 };
