@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Activity, Mail, Lock, User, Phone, ArrowRight, AlertCircle } from "lucide-react";
-import { Mail, Lock, User, ArrowRight, AlertCircle } from "lucide-react";
 import logoImg from "../assets/logo.jpg";
 
 export default function Login() {

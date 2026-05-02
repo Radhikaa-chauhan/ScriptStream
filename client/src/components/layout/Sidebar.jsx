@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useApp } from "../../context/AppContext";
-} from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
 import logoImg from "../../assets/logo.jpg";
 
 const navItems = [
