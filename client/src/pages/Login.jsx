@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Activity, Mail, Lock, User, ArrowRight, AlertCircle } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, AlertCircle } from "lucide-react";
+import logoImg from "../assets/logo.jpg";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -36,9 +37,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8 animate-fade-in">
-          <div className="w-14 h-14 bg-brand-600 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-200 mb-4">
-            <Activity size={28} className="text-white" />
-          </div>
+          <img src={logoImg} alt="ScriptStream" className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-brand-200 mb-4" />
           <h1 className="font-display text-2xl font-bold text-ink tracking-tight">ScriptStream</h1>
           <p className="text-sm text-ink-secondary mt-1">AI-Powered Prescription Digitizer</p>
         </div>

@@ -8,9 +8,9 @@ import {
   Plus,
   Settings,
   LogOut,
-  Activity,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import logoImg from "../../assets/logo.jpg";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -31,9 +31,7 @@ export default function Sidebar() {
         className="flex items-center gap-2.5 px-3 mb-8 cursor-pointer"
         onClick={() => navigate("/dashboard")}
       >
-        <div className="w-8 h-8 bg-brand-600 rounded-xl flex items-center justify-center">
-          <Activity size={16} className="text-white" />
-        </div>
+        <img src={logoImg} alt="ScriptStream" className="w-8 h-8 rounded-xl object-cover" />
         <span className="font-display font-bold text-ink text-base tracking-tight">
           ScriptStream
         </span>
