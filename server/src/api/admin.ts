@@ -86,4 +86,19 @@ router.post("/verify/:id", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * DELETE /api/admin/prescription/:id
+ * Allows admin to remove a prescription entirely
+ */
+router.delete("/prescription/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const deleted = await Prescription.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ error: "Prescription not found" });
+    res.json({ message: "Prescription deleted by admin" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

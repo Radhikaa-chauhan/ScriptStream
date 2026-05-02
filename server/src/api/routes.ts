@@ -19,6 +19,7 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
   try {
     console.log("[ROUTES] /analyze endpoint called");
     const { image } = req.body;
+
     if (!image) {
       console.log("[ROUTES] ❌ No image provided");
       return res.status(400).json({ message: "Image is required" });
@@ -120,7 +121,7 @@ import { askAI } from "../utils/ai";
 router.post("/chat", authenticateJWT as any, async (req: AuthRequest, res: any) => {
   try {
     const { prescriptionId, message, history } = req.body;
-    
+
     if (!prescriptionId || !message) {
       return res.status(400).json({ message: "prescriptionId and message are required" });
     }

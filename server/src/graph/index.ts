@@ -8,10 +8,15 @@ import { State } from "./state";
  * @param imageBase64 The raw prescription image data (base64 string)
  * @returns The final completed state of the graph
  */
-export const runWorkflow = async (imageBase64: string) => {
-  // Define the initial state payload
+export const runWorkflow = async (
+  imageBase64: string,
+  patientPhone: string   // ✅ ADD THIS PARAM
+) => {
+
   const initialState: Partial<State> = {
     prescriptionImage: imageBase64,
+    patientPhone: patientPhone,  // ✅ ADD THIS LINE
+
     extractedData: undefined,
     ragContext: "",
     safetyWarnings: [],
@@ -22,17 +27,14 @@ export const runWorkflow = async (imageBase64: string) => {
   };
 
   try {
-    // Invoke the graph execution
-    // Note: For V1, we run it sequentially. If we hit the "verification" node, 
-    // we would handle the interrupt here.
     console.log("Starting LangGraph execution...");
     const finalState = await graph.invoke(initialState);
-    
+
     console.log("LangGraph execution completed.");
     return finalState;
-    
+
   } catch (error) {
     console.error("Error during LangGraph execution:", error);
     throw error;
   }
-};
+}
