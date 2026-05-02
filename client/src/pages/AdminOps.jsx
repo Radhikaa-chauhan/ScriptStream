@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertOctagon,
   Search,
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
-import { getPrescriptions, verifyScan } from "../services/api";
+import { getPendingPrescriptions, verifyAdminPrescription } from "../services/api";
+import { useApp } from "../context/AppContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,8 @@ const statusBadge = (status) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminOps() {
+  const navigate = useNavigate();
+  const { setPrescriptionId } = useApp();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -57,8 +61,8 @@ export default function AdminOps() {
     setLoading(true);
     setFetchError(null);
     try {
-      const { data } = await getPrescriptions();
-      const items = data.prescriptions || [];
+      const { data } = await getPendingPrescriptions();
+      const items = data || [];
       // Sort: awaiting_verification first, then by date desc
       const sorted = [...items].sort((a, b) => {
         if (a.status === "awaiting_verification" && b.status !== "awaiting_verification") return -1;
@@ -97,7 +101,7 @@ export default function AdminOps() {
         ...selectedRx.extractedData,
         medications: editMeds,
       };
-      await verifyScan(selectedRx._id, updatedExtractedData);
+      await verifyAdminPrescription(selectedRx._id, updatedExtractedData);
       setActionMsg({ type: "success", text: "✅ Approved! LangGraph AI pipeline is now resuming — RAG lookup, safety check, and scheduling are running in the background." });
       // Update local state
       setPrescriptions((prev) =>
@@ -105,6 +109,13 @@ export default function AdminOps() {
           p._id === selectedRx._id ? { ...p, status: "pending" } : p
         )
       );
+
+      // Save ID to context and redirect to processing screen to watch it resume
+      setPrescriptionId(selectedRx._id);
+      setTimeout(() => {
+        navigate("/processing");
+      }, 1200);
+
     } catch (err) {
       console.error("Verify error:", err);
       setActionMsg({ type: "error", text: `❌ Failed to approve: ${err.response?.data?.message || err.message}` });

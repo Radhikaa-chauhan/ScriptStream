@@ -8,6 +8,11 @@ import {
   Plus,
   Settings,
   LogOut,
+  Activity,
+  Loader2,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useApp } from "../../context/AppContext";
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import logoImg from "../../assets/logo.jpg";
@@ -23,6 +28,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout } = useAuth();
+  const { prescriptionId } = useApp();
 
   return (
     <aside className="w-[220px] min-h-screen bg-white border-r border-slate-100 flex flex-col py-5 px-3 fixed left-0 top-0 z-30">
@@ -49,6 +55,20 @@ export default function Sidebar() {
             {label}
           </button>
         ))}
+
+        {/* Dynamic Processing Link */}
+        {prescriptionId && (
+          <button
+            onClick={() => navigate("/processing")}
+            className={pathname === "/processing" ? "nav-item-active" : "nav-item text-brand-600 bg-brand-50/50"}
+          >
+            <Loader2 size={17} className="animate-spin text-brand-500" />
+            <span className="flex items-center gap-2">
+              Processing
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+            </span>
+          </button>
+        )}
       </nav>
 
       {/* New Upload CTA */}

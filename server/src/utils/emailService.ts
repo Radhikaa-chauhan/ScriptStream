@@ -1,139 +1,60 @@
-import nodemailer from "nodemailer";
+import Twilio from "twilio";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 /**
- * Email Service
+ * SMS Notification Service (Twilio)
  *
- * Dev mode: When SMTP_HOST is not set, automatically creates a test account
- * via Ethereal Mail — zero config email testing for any team member.
- * The Ethereal preview URL is logged after each send.
+ * Sends the medication schedule as an SMS to the patient's phone number.
+ * Uses the same Twilio credentials as the WhatsApp service.
  *
- * Production: Uses SMTP credentials from .env
+ * Requires in .env:
+ *   TWILIO_ACCOUNT_SID
+ *   TWILIO_AUTH_TOKEN
+ *   TWILIO_SMS_FROM  (your Twilio phone number, e.g. +14155238886)
  */
-
-let transporter: nodemailer.Transporter | null = null;
-let isEthereal = false;
 
 /**
- * Initialize the email transporter (lazy, singleton)
+ * Format a medication schedule into a concise SMS body
  */
-const getTransporter = async (): Promise<nodemailer.Transporter> => {
-  if (transporter) return transporter;
-
-  const smtpHost = process.env.SMTP_HOST;
-
-  if (smtpHost) {
-    // Production mode — use real SMTP
-    transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_PORT === "465",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-    isEthereal = false;
-    console.log(`[Email] Using SMTP server: ${smtpHost}`);
-  } else {
-    // Dev mode — Ethereal Mail (auto-generated test account)
-    const testAccount = await nodemailer.createTestAccount();
-    transporter = nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    });
-    isEthereal = true;
-    console.log("[Email] Using Ethereal Mail (dev mode). No real emails will be sent.");
-    console.log(`[Email] Ethereal credentials: ${testAccount.user}`);
-  }
-
-  return transporter;
-};
-
-/**
- * Format medication schedule into HTML for email
- */
-const formatScheduleHTML = (
+const formatScheduleSMS = (
   schedule: any,
   patientName: string,
   warnings: string[]
 ): string => {
-  const timeSlots = [
-    { label: "🌅 Morning", items: schedule.morning || [] },
-    { label: "☀️ Afternoon", items: schedule.afternoon || [] },
-    { label: "🌆 Evening", items: schedule.evening || [] },
-    { label: "🌙 Night", items: schedule.night || [] },
-  ];
+  const lines: string[] = [];
+  lines.push(`💊 ScriptStream — Hi ${patientName}! Your medication schedule:`);
 
-  const scheduleRows = timeSlots
-    .filter((slot) => slot.items.length > 0)
-    .map(
-      (slot) =>
-        `<tr>
-          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1e293b;">${slot.label}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${slot.items.join(", ")}</td>
-        </tr>`
-    )
-    .join("");
+  if (schedule.morning?.length > 0)
+    lines.push(`🌅 Morning: ${schedule.morning.join(", ")}`);
+  if (schedule.afternoon?.length > 0)
+    lines.push(`☀️ Afternoon: ${schedule.afternoon.join(", ")}`);
+  if (schedule.evening?.length > 0)
+    lines.push(`🌆 Evening: ${schedule.evening.join(", ")}`);
+  if (schedule.night?.length > 0)
+    lines.push(`🌙 Night: ${schedule.night.join(", ")}`);
 
-  const warningHTML =
-    warnings.length > 0
-      ? `<div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-top: 20px;">
-           <h3 style="color: #dc2626; margin: 0 0 8px;">⚠️ Safety Warnings</h3>
-           <ul style="margin: 0; padding-left: 20px; color: #991b1b;">
-             ${warnings.map((w) => `<li style="margin-bottom: 4px;">${w}</li>`).join("")}
-           </ul>
-         </div>`
-      : "";
+  if (schedule.notes?.length > 0) {
+    lines.push(`📝 Notes: ${schedule.notes.join(" | ")}`);
+  }
 
-  const notesHTML =
-    schedule.notes?.length > 0
-      ? `<div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-top: 16px;">
-           <h3 style="color: #1d4ed8; margin: 0 0 8px;">📝 Notes</h3>
-           <ul style="margin: 0; padding-left: 20px; color: #1e40af;">
-             ${schedule.notes.map((n: string) => `<li style="margin-bottom: 4px;">${n}</li>`).join("")}
-           </ul>
-         </div>`
-      : "";
+  if (warnings.length > 0) {
+    lines.push(`⚠️ Warning: ${warnings.slice(0, 2).join(" | ")}`);
+  }
 
-  return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 24px; border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">💊 ScriptStream</h1>
-        <p style="color: #bfdbfe; margin: 4px 0 0; font-size: 14px;">Your Medication Schedule</p>
-      </div>
-      <div style="background: white; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
-        <p style="color: #475569; margin: 0 0 16px;">Hello <strong>${patientName}</strong>,</p>
-        <p style="color: #475569; margin: 0 0 20px;">Here is your personalized daily medication schedule generated by ScriptStream AI:</p>
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-          <thead>
-            <tr style="background: #f8fafc;">
-              <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Time</th>
-              <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Medications</th>
-            </tr>
-          </thead>
-          <tbody>${scheduleRows}</tbody>
-        </table>
-        ${warningHTML}
-        ${notesHTML}
-        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; text-align: center;">
-          This schedule was generated by AI. Always consult your doctor before making changes to your medication.
-        </p>
-      </div>
-    </div>
-  `;
+  lines.push(`Consult your doctor before any changes.`);
+
+  return lines.join("\n");
 };
 
 /**
- * Send medication schedule email
- * @returns { success, messageId?, previewUrl?, error? }
+ * Send medication schedule via Twilio SMS
+ *
+ * @param to          - Patient's phone number (E.164 format, e.g. "+919876543210")
+ * @param schedule    - Medication schedule object
+ * @param patientName - Patient's name
+ * @param warnings    - Safety warnings array
  */
 export const sendScheduleEmail = async (
   to: string,
@@ -146,74 +67,48 @@ export const sendScheduleEmail = async (
   previewUrl?: string;
   error?: string;
 }> => {
-  try {
-    const transport = await getTransporter();
-    const html = formatScheduleHTML(schedule, patientName, warnings);
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_SMS_FROM || process.env.TWILIO_WHATSAPP_FROM?.replace("whatsapp:", "") || "";
 
-    const info = await transport.sendMail({
-      from: process.env.NOTIFICATION_EMAIL_FROM || "ScriptStream <noreply@scriptstream.ai>",
-      to,
-      subject: `💊 Your Medication Schedule — ScriptStream`,
-      html,
-    });
-
-    const result: any = {
-      success: true,
-      messageId: info.messageId,
+  if (!accountSid || !authToken || !fromNumber) {
+    console.warn(
+      "[SMS] Twilio not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM missing). Skipping SMS."
+    );
+    return {
+      success: false,
+      error: "Twilio SMS credentials not configured",
     };
-
-    // Log Ethereal preview URL for dev
-    if (isEthereal) {
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      result.previewUrl = previewUrl;
-      console.log(`[Email] ✅ Sent! Preview at: ${previewUrl}`);
-    } else {
-      console.log(`[Email] ✅ Sent to ${to} (ID: ${info.messageId})`);
-    }
-
-    return result;
-  } catch (error: any) {
-    console.error(`[Email] ❌ Failed to send to ${to}:`, error.message);
-    return { success: false, error: error.message };
   }
-};
 
-/**
- * Send a medication reminder email for a specific time slot
- */
-export const sendReminderEmail = async (
-  to: string,
-  medications: string[],
-  timeSlot: string
-): Promise<{ success: boolean; error?: string }> => {
+  if (!to) {
+    return {
+      success: false,
+      error: "No patient phone number provided",
+    };
+  }
+
   try {
-    const transport = await getTransporter();
+    const client = Twilio(accountSid, authToken);
+    const body = formatScheduleSMS(schedule, patientName, warnings);
 
-    const html = `
-      <div style="font-family: 'Segoe UI', sans-serif; max-width: 400px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1e293b;">⏰ Medication Reminder</h2>
-        <p style="color: #475569;">It's time for your <strong>${timeSlot}</strong> medications:</p>
-        <ul style="color: #1e293b;">
-          ${medications.map((m) => `<li style="margin-bottom: 6px;">${m}</li>`).join("")}
-        </ul>
-        <p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">— ScriptStream AI</p>
-      </div>
-    `;
-
-    const info = await transport.sendMail({
-      from: process.env.NOTIFICATION_EMAIL_FROM || "ScriptStream <noreply@scriptstream.ai>",
+    const message = await client.messages.create({
+      body,
+      from: fromNumber,
       to,
-      subject: `⏰ ${timeSlot} Medication Reminder — ScriptStream`,
-      html,
     });
 
-    if (isEthereal) {
-      console.log(`[Email] Reminder preview: ${nodemailer.getTestMessageUrl(info)}`);
-    }
+    console.log(`[SMS] ✅ Schedule sent to ${to} (SID: ${message.sid})`);
 
-    return { success: true };
+    return {
+      success: true,
+      messageId: message.sid,
+    };
   } catch (error: any) {
-    console.error(`[Email] Reminder failed:`, error.message);
-    return { success: false, error: error.message };
+    console.error(`[SMS] ❌ Failed to send SMS to ${to}:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 };

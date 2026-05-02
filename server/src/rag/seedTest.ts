@@ -5,8 +5,8 @@
  *
  * Tests the full ChromaDB pipeline:
  * 1. Ingests drug data (idempotent)
- * 2. Queries for a specific drug
- * 3. Prints retrieved results
+ * 2. Checks document count
+ * 3. Queries for specific drugs
  */
 
 import dotenv from "dotenv";

@@ -11,7 +11,7 @@ import { io } from "socket.io-client";
  *   "processing" | "success" | "warning" | "waiting" | "completed" | "failed"
  */
 
-const SOCKET_URL = "http://localhost:8000";
+const SOCKET_URL = "http://localhost:8001";
 
 export function useSocket(jobId) {
   const socketRef = useRef(null);
@@ -35,7 +35,7 @@ export function useSocket(jobId) {
       // Map server status → UI status
       if (s === "completed" || s === "done") setStatus("completed");
       else if (s === "failed") setStatus("failed");
-      else if (s === "waiting") setStatus("waiting"); // paused at verification
+      else if (s === "waiting" || s === "awaiting_verification") setStatus("waiting"); // paused at verification
       else setStatus("processing");
 
       // Fake progress based on known steps
@@ -48,8 +48,8 @@ export function useSocket(jobId) {
       let level = "INFO";
       if (s === "success") level = "SUCCESS";
       else if (s === "warning") level = "WARN";
-      else if (s === "failed") level = "ERROR";
-      else if (s === "waiting") level = "WAIT";
+      else if (s === "failed" || s === "error") level = "ERROR";
+      else if (s === "waiting" || s === "awaiting_verification") level = "WAIT";
 
       setLogs((prev) => [...prev, { time: timeStr, level, msg: log }]);
     });

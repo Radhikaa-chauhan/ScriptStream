@@ -43,3 +43,26 @@ export const emitStatus = (status: string, log: string, userId?: string) => {
     ioInstance.emit("ai_status", { status, log, timestamp: new Date() });
   }
 };
+
+/**
+ * Emit the final analysis result so the client can navigate to the Results page
+ * with real data. Fires the `job:completed` event the useSocket hook already
+ * listens for.
+ */
+export const emitResult = (result: {
+  extractedData: any;
+  schedule: any;
+  safetyWarnings: string[];
+}, userId?: string) => {
+  console.log("[SOCKETS] Broadcasting job:completed with full analysis result");
+  if (!ioInstance) {
+    console.warn("[SOCKETS] ⚠️ Socket.io not initialized, cannot emit result");
+    return;
+  }
+
+  if (userId) {
+    ioInstance.to(userId).emit("job:completed", { result });
+  } else {
+    ioInstance.emit("job:completed", { result });
+  }
+};

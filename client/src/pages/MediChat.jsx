@@ -4,6 +4,7 @@ import { Send, Link, ExternalLink, AlertTriangle, ChevronRight } from "lucide-re
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
 import { sendChatMessage } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import logoImg from "../assets/logo.jpg";
 
 const quickReplies = [
@@ -22,7 +23,9 @@ const getTime = () => {
 export default function MediChat() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const prescriptionId = location.state?.prescriptionId;
+  const userInitials = user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U";
 
   const [messages, setMessages] = useState([
     {
@@ -84,7 +87,7 @@ export default function MediChat() {
             <div>
               <p className="font-semibold text-sm text-ink flex items-center gap-2">
                 <span className="text-base">💬</span>
-                Conversation: Amoxicillin Context
+                Prescription Chat
               </p>
               <p className="text-xs text-ink-muted">FDA RAG Engine Active • 128-bit Clinical Encryption</p>
             </div>
@@ -143,7 +146,7 @@ export default function MediChat() {
                 </div>
                 {msg.role === "user" && (
                   <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    AJ
+                    {userInitials}
                   </div>
                 )}
               </div>

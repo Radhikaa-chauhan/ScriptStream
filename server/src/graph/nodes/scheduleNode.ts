@@ -1,18 +1,15 @@
-import { gemini, withRetryGemini } from "../../utils/gemini";
+import { askAI, withRetry, extractJSON } from "../../utils/ai";
 import { State, ScheduleSchema } from "../state";
 import { emitStatus } from "../../sockets/socketEvents";
 
 /**
- * Scheduling Agent Node
- * Responsible for mapping extracted dosage instructions into a strict 
- * daily schedule (Morning, Afternoon, Evening, Night).
+ * Scheduling Agent Node (OpenRouter Edition)
  */
 export const scheduleNode = async (state: State) => {
-  console.log("[SCHEDULE] Starting schedule node...");
-  emitStatus("processing", "Scheduling Agent: Generating daily medication schedule...");
+  console.log("[SCHEDULE] Starting schedule node with OpenRouter...");
+  emitStatus("processing", "Scheduling Agent: Generating daily medication schedule using Gemma-4...");
 
   if (!state.extractedData || state.extractedData.medications.length === 0) {
-    console.log("[SCHEDULE] No medications to schedule, skipping");
     return {
       schedule: { morning: [], afternoon: [], evening: [], night: [], notes: ["No medications to schedule."] },
       executionLogs: [...state.executionLogs, "Scheduling Agent: Skipped (no medications)."],
@@ -22,10 +19,9 @@ export const scheduleNode = async (state: State) => {
 
   const medsData = JSON.stringify(state.extractedData.medications, null, 2);
 
-  const runScheduleAgent = async () => {
-    return await gemini.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: `You are an expert medical scheduler AI. Map raw medication instructions to the daily schedule. Interpret abbreviations like BID (twice daily), TID (three times daily), QID (four times daily). Return ONLY a valid JSON object with no markdown formatting.
+  const prompt = `You are an expert medical scheduler AI. Map raw medication instructions to the daily schedule. 
+Interpret abbreviations like BID (twice daily), TID (three times daily), QID (four times daily). 
+Return ONLY a valid JSON object. Do not include markdown code blocks.
 
 Medications to schedule:
 ${medsData}
@@ -39,38 +35,33 @@ Return a JSON object like this:
   "notes": ["important safety notes"]
 }
 
-Ensure all keys are present (use empty arrays if no medications for that time).`
-    });
-  };
+Ensure all keys are present (use empty arrays if no medications for that time).`;
 
   try {
-    const response = await withRetryGemini(runScheduleAgent);
-    
-    // Extract text from Gemini response
-    const responseText = response.text || "";
+    const responseText = await withRetry(() => askAI(prompt));
     
     if (!responseText) {
       throw new Error("Scheduling Agent returned empty response.");
     }
 
-    // Parse JSON from response (handle potential markdown formatting)
-    let jsonStr = responseText.trim();
-    if (jsonStr.startsWith("```json")) {
-      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
-    } else if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
-    }
+    const parsedResponse = extractJSON(responseText);
+    
+    // Fill in defaults if the reasoning model misses some keys
+    const rawSchedule = {
+      morning: Array.isArray(parsedResponse.morning) ? parsedResponse.morning : [],
+      afternoon: Array.isArray(parsedResponse.afternoon) ? parsedResponse.afternoon : [],
+      evening: Array.isArray(parsedResponse.evening) ? parsedResponse.evening : [],
+      night: Array.isArray(parsedResponse.night) ? parsedResponse.night : [],
+      notes: Array.isArray(parsedResponse.notes) ? parsedResponse.notes : []
+    };
 
-    const parsedResponse = JSON.parse(jsonStr);
-
-    // Validate with Zod
-    const schedule = ScheduleSchema.parse(parsedResponse);
+    const schedule = ScheduleSchema.parse(rawSchedule);
     
     emitStatus("success", "Scheduling Agent: Daily schedule finalized.");
     
     return {
       schedule,
-      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete with Gemini JSON parsing."],
+      executionLogs: [...state.executionLogs, "Scheduling Agent: Schedule generation complete using Gemma-4."],
       status: "schedule_complete"
     };
   } catch (error: any) {

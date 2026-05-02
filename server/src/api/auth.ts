@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "default_development_secret";
 export const register = async (req: Request, res: Response) => {
   console.log("[AUTH] Register endpoint called");
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
     console.log("[AUTH] Register attempt for email:", email);
 
     if (!name || !email || !password) {
@@ -30,6 +30,7 @@ export const register = async (req: Request, res: Response) => {
     const newUser = new User({
       name,
       email,
+      phone: phone || "",
       password: hashedPassword,
     });
 
@@ -40,7 +41,7 @@ export const register = async (req: Request, res: Response) => {
     res.status(201).json({
       message: "User created successfully",
       token,
-      user: { id: newUser._id, name: newUser.name, email: newUser.email }
+      user: { id: newUser._id, name: newUser.name, email: newUser.email, phone: newUser.phone }
     });
   } catch (error) {
     console.error("Registration error:", error);

@@ -5,15 +5,15 @@ import { z } from "zod";
  * Zod schemas for strict data validation
  */
 export const PrescriptionSchema = z.object({
-  doctorName: z.string().optional(),
-  patientName: z.string().optional(),
+  doctorName: z.string().nullable().optional().transform(v => v ?? "Unknown"),
+  patientName: z.string().nullable().optional().transform(v => v ?? "Unknown"),
   medications: z.array(z.object({
-    name: z.string(),
-    dosage: z.string(),
-    instructions: z.string(),
-    frequency: z.string().optional()
+    name: z.string().nullable().transform(v => v ?? "Unknown medication"),
+    dosage: z.string().nullable().transform(v => v ?? "unreadable"),
+    instructions: z.string().nullable().transform(v => v ?? "unreadable"),
+    frequency: z.string().nullable().optional().transform(v => v ?? "unreadable"),
   })),
-  date: z.string().optional()
+  date: z.string().nullable().optional().transform(v => v ?? "Unknown")
 });
 
 export const ScheduleSchema = z.object({
@@ -55,6 +55,17 @@ export const StateAnnotation = Annotation.Root({
   executionLogs: Annotation<string[]>({
     reducer: (x, y) => x.concat(y),
     default: () => [],
+  }),
+
+  // Patient contact information fetched from the DB
+  patientEmail: Annotation<string>({
+    reducer: (x, y) => y ?? x,
+    default: () => "",
+  }),
+
+  patientPhone: Annotation<string>({
+    reducer: (x, y) => y ?? x,
+    default: () => "",
   }),
 
   // Conversation history for the Chat Engine

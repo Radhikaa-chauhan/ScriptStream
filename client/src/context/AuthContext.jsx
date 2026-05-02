@@ -33,8 +33,8 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
-    const { data } = await registerUser(name, email, password);
+  const register = useCallback(async (name, email, password, phone) => {
+    const { data } = await registerUser(name, email, password, phone);
     localStorage.setItem("ss_token", data.token);
     localStorage.setItem("ss_user", JSON.stringify(data.user));
     setToken(data.token);
