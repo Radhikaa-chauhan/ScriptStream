@@ -5,6 +5,7 @@ import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
 import { sendChatMessage } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import logoImg from "../assets/logo.jpg";
 
 const quickReplies = [
   "Tell me about side effects",
@@ -102,9 +103,7 @@ export default function MediChat() {
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
             {/* Welcome banner */}
             <div className="flex flex-col items-center gap-3 py-6">
-              <div className="w-16 h-16 rounded-full bg-ink flex items-center justify-center text-2xl shadow-lg">
-                🤖
-              </div>
+              <img src={logoImg} alt="ScriptStream" className="w-16 h-16 rounded-2xl object-cover shadow-lg" />
               <div className="text-center">
                 <p className="font-display font-bold text-base text-ink">ScriptStream Clinical Assistant</p>
                 <p className="text-sm text-ink-secondary mt-1">
