@@ -63,6 +63,11 @@ export const getPrescriptions = () => api.get("/prescriptions");
  */
 export const getPrescriptionById = (id) => api.get(`/prescriptions/${id}`);
 
+/**
+ * DELETE /api/prescriptions/:id
+ */
+export const deletePrescription = (id) => api.delete(`/prescriptions/${id}`);
+
 
 // ─── Admin Verification (resumes the LangGraph workflow after human review) ──
 
@@ -83,6 +88,11 @@ export const getPendingPrescriptions = () => api.get("/admin/pending");
  */
 export const verifyAdminPrescription = (id, verifiedData) =>
   api.post(`/admin/verify/${id}`, { verifiedData });
+
+/**
+ * DELETE /api/admin/prescription/:id
+ */
+export const deleteAdminPrescription = (id) => api.delete(`/admin/prescription/${id}`);
 
 /**
  * POST /api/chat
