@@ -3,8 +3,12 @@ import { register, login, authenticateJWT, AuthRequest } from "./auth";
 import { graph } from "../graph/graph";
 import { Prescription } from "../database/models";
 import { analysisQueue } from "../workers/graphWorker";
+import adminRoutes from "./admin";
 
 const router = Router();
+
+// Mount Admin Routes
+router.use("/admin", adminRoutes);
 
 // Auth Routes
 router.post("/auth/register", register as any);
@@ -37,7 +41,8 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
     await analysisQueue.add("analyze-job", {
       type: "start_analysis",
       prescriptionId: newPrescription._id.toString(),
-      image
+      image,
+      userId
     });
     console.log("[ROUTES] ✅ Job added to queue");
 
@@ -95,7 +100,21 @@ router.get("/prescriptions", authenticateJWT as any, async (req: AuthRequest, re
   }
 });
 
-import { gemini, withRetryGemini } from "../utils/gemini";
+// Fetch Single Prescription Route
+router.get("/prescriptions/:id", authenticateJWT as any, async (req: AuthRequest, res: any) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    const prescription = await Prescription.findOne({ _id: id, userId });
+    if (!prescription) return res.status(404).json({ message: "Prescription not found" });
+    return res.json({ prescription });
+  } catch (error) {
+    console.error("Fetch single history error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+import { askAI } from "../utils/ai";
 
 // Live Clinical Chat Route
 router.post("/chat", authenticateJWT as any, async (req: AuthRequest, res: any) => {
@@ -130,15 +149,10 @@ CRITICAL RULES:
     // Build conversation history with system prompt
     const prompt = `${systemPrompt}\n\nUser Message: ${message}`;
 
-    const response = await withRetryGemini(async () => {
-      return await gemini.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-      });
-    });
+    const reply = await askAI(prompt);
 
-    return res.json({ 
-      reply: response.text || "I'm sorry, I couldn't generate a text response." 
+    return res.json({
+      reply: reply || "I'm sorry, I couldn't generate a text response."
     });
 
   } catch (error) {

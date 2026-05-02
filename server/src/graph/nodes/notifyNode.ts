@@ -22,38 +22,36 @@ export const notifyNode = async (state: State) => {
   let emailSuccess = false;
   let whatsappSuccess = false;
 
-  // ─── Email Notification ─────────────────────────────────────────────────
+  // ─── SMS Notification (Twilio) ──────────────────────────────────────────
 
-  // For V1 MVP, we use a placeholder email. In production, this would come
-  // from the user's profile in MongoDB.
-  const patientEmail = process.env.PATIENT_EMAIL || "";
+  // Phone and email come from the logged-in user's MongoDB profile
+  const patientEmail = state.patientEmail || process.env.PATIENT_EMAIL || "";
   const patientName = state.extractedData?.patientName || "Patient";
-  const patientPhone = process.env.PATIENT_PHONE || "";
+  // patientPhone from state (user's DB profile) takes priority over .env fallback
+  const patientPhone = state.patientPhone || process.env.PATIENT_PHONE || "";
 
-  if (patientEmail) {
-    emitStatus("processing", "Notification Agent: Sending email with medication schedule...");
+  if (patientPhone) {
+    emitStatus("processing", "Notification Agent: Sending SMS with medication schedule...");
 
-    const emailResult = await sendScheduleEmail(
-      patientEmail,
+    // sendScheduleEmail now sends SMS via Twilio
+    const smsResult = await sendScheduleEmail(
+      patientPhone,
       state.schedule,
       patientName,
       state.safetyWarnings
     );
 
-    if (emailResult.success) {
+    if (smsResult.success) {
       emailSuccess = true;
-      logs.push(`Notification Agent: Email sent to ${patientEmail}.`);
-      if (emailResult.previewUrl) {
-        logs.push(`Notification Agent: Ethereal preview — ${emailResult.previewUrl}`);
-      }
-      emitStatus("success", `Notification Agent: Email sent successfully.`);
+      logs.push(`Notification Agent: SMS sent to ${patientPhone} (SID: ${smsResult.messageId}).`);
+      emitStatus("success", `Notification Agent: SMS sent to ${patientPhone}.`);
     } else {
-      logs.push(`Notification Agent: Email failed — ${emailResult.error}`);
-      emitStatus("warning", `Notification Agent: Email sending failed — ${emailResult.error}`);
+      logs.push(`Notification Agent: SMS failed — ${smsResult.error}`);
+      emitStatus("warning", `Notification Agent: SMS sending failed — ${smsResult.error}`);
     }
   } else {
-    logs.push("Notification Agent: No patient email configured. Skipping email.");
-    emitStatus("info", "Notification Agent: No patient email configured. Skipping.");
+    logs.push("Notification Agent: No patient phone configured. Skipping SMS.");
+    emitStatus("info", "Notification Agent: No patient phone configured. Skipping.");
   }
 
   // ─── WhatsApp Notification ──────────────────────────────────────────────
