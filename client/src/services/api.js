@@ -36,8 +36,8 @@ api.interceptors.response.use(
 export const loginUser = (email, password) =>
   api.post("/auth/login", { email, password });
 
-export const registerUser = (name, email, password) =>
-  api.post("/auth/register", { name, email, password });
+export const registerUser = (name, email, password, phone) =>
+  api.post("/auth/register", { name, email, password, phone });
 
 // ─── AI Analysis ──────────────────────────────────────────────────────────────
 
@@ -66,16 +66,23 @@ export const getPrescriptionById = (id) => api.get(`/prescriptions/${id}`);
 
 // ─── Admin Verification (resumes the LangGraph workflow after human review) ──
 
-/**
- * POST /api/verify
- * Resume the LangGraph pipeline after human approval.
- * @param {string} prescriptionId - MongoDB _id of the prescription
- * @param {object} extractedData - Corrected/confirmed extraction from the admin
- */
 export const verifyScan = (prescriptionId, extractedData) =>
   api.post("/verify", { prescriptionId, extractedData });
 
-// ─── Chat (stub — backend route not yet implemented) ──────────────────────────
+// ─── Specialized Admin Endpoints ──────────────────────────────────────────────
+
+/**
+ * GET /api/admin/pending
+ * List all prescriptions waiting for human review
+ */
+export const getPendingPrescriptions = () => api.get("/admin/pending");
+
+/**
+ * POST /api/admin/verify/:id
+ * Admin approves/edits data and resumes the pipeline
+ */
+export const verifyAdminPrescription = (id, verifiedData) =>
+  api.post(`/admin/verify/${id}`, { verifiedData });
 
 /**
  * POST /api/chat

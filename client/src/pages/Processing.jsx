@@ -15,6 +15,7 @@ import Footer from "../components/layout/Footer";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../hooks/useSocket";
+import { getPrescriptionById } from "../services/api";
 
 const steps = [
   {
@@ -60,11 +61,11 @@ const logLines = [
 ];
 
 const levelColor = {
-  INFO:    "text-blue-400",
+  INFO: "text-blue-400",
   SUCCESS: "text-green-400",
-  WARN:    "text-yellow-400",
-  WAIT:    "text-purple-400",
-  ERROR:   "text-red-400",
+  WARN: "text-yellow-400",
+  WAIT: "text-purple-400",
+  ERROR: "text-red-400",
 };
 
 export default function Processing() {
@@ -77,6 +78,7 @@ export default function Processing() {
   const [visibleLogs, setVisibleLogs] = useState([]);
   const [etaSeconds, setEtaSeconds] = useState(14);
   const [paused, setPaused] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
   const logRef = useRef(null);
   const pausedRef = useRef(false);
 
@@ -84,15 +86,59 @@ export default function Processing() {
   useEffect(() => {
     if (socketStatus === "completed" && socketResult) {
       setAnalysisResult(socketResult);
-      navigate("/results");
+      navigate("/results", { state: { prescriptionId } });
     }
-  }, [socketStatus, socketResult, setAnalysisResult, navigate]);
+  }, [socketStatus, socketResult, setAnalysisResult, navigate, prescriptionId]);
+
+  const [backendStatus, setBackendStatus] = useState(null);
+  
+  // Check backend immediately in case job finished before we connected
+  useEffect(() => {
+    if (!prescriptionId) return;
+    
+    let isMounted = true;
+    const checkStatus = async () => {
+      try {
+        const { data } = await getPrescriptionById(prescriptionId);
+        if (isMounted && data?.prescription) {
+          const s = data.prescription.status;
+          setBackendStatus(s);
+          if (s === "processed") {
+            navigate("/results", { state: { prescriptionId } });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check rx status:", err);
+      }
+    };
+    
+    checkStatus();
+    
+    // Also poll every 5 seconds as a fallback if sockets miss events
+    const interval = setInterval(checkStatus, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [prescriptionId, navigate]);
+
+  const activeStatus = backendStatus === "awaiting_verification" ? "waiting" 
+    : socketStatus === "waiting" ? "waiting" 
+    : socketStatus;
+
+  // Show verification modal whenever status is "waiting"
+  useEffect(() => {
+    if (activeStatus === "waiting") {
+      setShowVerifyModal(true);
+    }
+  }, [activeStatus]);
 
   // Append socket logs to visible logs (real logs replace fake ones)
   useEffect(() => {
     if (socketLogs.length > 0) {
       setVisibleLogs(socketLogs);
       // Auto-scroll
+      const isPaused = activeStatus === "waiting";
       if (logRef.current) {
         logRef.current.scrollTop = logRef.current.scrollHeight;
       }
@@ -116,6 +162,9 @@ export default function Processing() {
           if (socketLogs.length > 0) return prev;
           return [...prev, logLines[idx]];
         });
+        // Stop injecting fake logs once real ones start
+        if (socketLogs.length > 0) return;
+
         idx++;
         if (logRef.current) {
           logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -134,8 +183,8 @@ export default function Processing() {
 
     const tick = setInterval(() => {
       if (pausedRef.current) return;
-      // If graph is waiting for verification, freeze animation at step 0
-      if (socketStatus === "waiting") return;
+      // If graph is waiting for verification or failed, freeze animation
+      if (activeStatus === "waiting" || activeStatus === "failed" || activeStatus === "error") return;
 
       const totalDur = steps[stepIdx].duration;
       elapsed += 100;
@@ -159,7 +208,7 @@ export default function Processing() {
     }, 100);
 
     return () => clearInterval(tick);
-  }, [navigate, prescriptionId, socketStatus]);
+  }, [navigate, prescriptionId, activeStatus]);
 
   // ETA countdown
   useEffect(() => {
@@ -172,12 +221,59 @@ export default function Processing() {
 
   return (
     <AppLayout>
+      {/* ─── Verification Required Modal ─────────────────────────────── */}
+      {showVerifyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-purple-100 p-8 max-w-md w-full mx-4 animate-fade-in">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-5">
+              <Pause size={28} className="text-purple-600" />
+            </div>
+
+            {/* Title */}
+            <h2 className="font-display text-xl font-bold text-ink text-center mb-2">
+              Pharmacist Verification Required
+            </h2>
+            <p className="text-sm text-ink-muted text-center leading-relaxed mb-6">
+              The Vision Agent has finished reading your prescription. A clinician must
+              review and confirm the extracted medications before the Safety, RAG, and
+              Scheduling agents continue.
+            </p>
+
+            {/* Prescription ID */}
+            {prescriptionId && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 mb-6 text-center">
+                <p className="text-[10px] text-ink-muted uppercase tracking-wide mb-0.5">Prescription ID</p>
+                <p className="font-mono text-xs text-ink font-bold">{prescriptionId}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3">
+              <button
+                id="go-to-admin-btn"
+                onClick={() => navigate("/admin")}
+                className="btn-primary w-full justify-center text-sm py-3"
+              >
+                Go to Admin Panel — Verify Now →
+              </button>
+              <button
+                onClick={() => setShowVerifyModal(false)}
+                className="btn-secondary w-full justify-center text-sm py-2 text-ink-muted"
+              >
+                Stay on this page
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col min-h-[calc(100vh-56px)]">
         <div className="flex-1">
           {/* Header */}
           <div className="flex items-center gap-3 mb-1">
             <h1 className="font-display text-2xl font-bold text-ink">Processing Prescription</h1>
-            {socketStatus === "waiting" ? (
+            {activeStatus === "waiting" ? (
               <span className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold px-3 py-1 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse inline-block" />
                 AWAITING REVIEW
@@ -192,27 +288,6 @@ export default function Processing() {
           <p className="text-sm text-ink-secondary mb-4">
             Our clinical RAG-engine is currently analyzing your handwritten upload for accuracy, interactions, and scheduling.
           </p>
-
-          {/* Verification waiting banner */}
-          {socketStatus === "waiting" && (
-            <div className="flex items-start gap-4 bg-purple-50 border border-purple-200 rounded-2xl px-5 py-4 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <Pause size={16} className="text-purple-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm text-purple-800">AI Pipeline paused — awaiting admin verification</p>
-                <p className="text-xs text-purple-600 mt-0.5 leading-relaxed">
-                  The Vision Agent has extracted medication data and is waiting for a clinician to review and confirm accuracy before the Safety, RAG, and Scheduling agents continue.
-                </p>
-              </div>
-              <button
-                onClick={() => navigate("/admin")}
-                className="btn-primary text-xs py-2 flex-shrink-0"
-              >
-                Go to Admin Panel →
-              </button>
-            </div>
-          )}
 
 
           <div className="grid grid-cols-[1fr_380px] gap-5">
@@ -239,13 +314,12 @@ export default function Processing() {
                       <div key={i} className="flex items-start gap-4">
                         {/* Icon bubble */}
                         <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                            done
-                              ? "bg-green-100 text-green-600 ring-2 ring-green-200"
-                              : active
+                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${done
+                            ? "bg-green-100 text-green-600 ring-2 ring-green-200"
+                            : active
                               ? "bg-brand-600 text-white shadow-lg shadow-brand-200 ring-2 ring-brand-200"
                               : "bg-slate-100 text-ink-muted"
-                          }`}
+                            }`}
                         >
                           {step.icon}
                         </div>
