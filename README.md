@@ -1,67 +1,63 @@
 # 🩺 ScriptStream
 
-> An agentic system that digitizes handwritten medical prescriptions using LangGraph orchestration, Vision AI, and Retrieval-Augmented Generation — delivering structured drug data, safety warnings, and personalized medication schedules in real time.
+> An agentic AI system that digitizes handwritten medical prescriptions — extracting structured drug data, detecting safety interactions, and building personalized medication schedules through a LangGraph-orchestrated pipeline with real-time progress updates.
 
 ---
 
-## 📌 Overview
+## Overview
 
-Handwritten prescriptions are a leading cause of medication errors worldwide. ScriptStream solves this by combining computer vision, a drug-safety vector database, and an AI agent pipeline to accurately extract, validate, and structure prescription data — with a human-in-the-loop review layer for low-confidence results.
-
-The system accepts an image of a handwritten prescription, runs it through a 6-node agentic workflow, and outputs verified medication details, interaction warnings, and a daily adherence schedule — all surfaced through a real-time React dashboard and a conversational chat interface.
-
----
-## ✨ Features
-
-- **Vision OCR** — Extracts structured JSON from handwritten prescription images using Gemini / Claude Vision
-- **RAG Drug Lookup** — Queries a ChromaDB vector database of drug profiles, contraindications, and side effects
-- **Safety Analysis** — Cross-references extracted medications with the patient's existing prescription history to flag dangerous interactions
-- **Adherence Scheduler** — Builds a personalized Morning / Noon / Evening / Night medication schedule based on clinical guidelines
-- **Confidence Scoring** — Calculates a reliability score per prescription; flags low-confidence results for admin review
-- **Admin Review Panel** — Human-in-the-loop interface for reviewing, correcting, and approving flagged scans before publishing to the patient
-- **MediChat** — Persistent-memory conversational AI for patients to ask follow-up questions about their medications
-- **Real-time Progress** — Socket.io powered live processing feed showing each agent step as it executes
+Handwritten prescriptions are a leading cause of medication errors. ScriptStream solves this by running prescription images through a 6-node agentic state machine — from Vision OCR to a final verified schedule — with Socket.io delivering live progress to the frontend and MongoDB persisting all results. Low-confidence results are held in an admin review queue before they reach the patient.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │         FastAPI Backend              │
-                    │  POST /analyze   POST /chat          │
-                    └──────────────┬──────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────────────┐
-                    │         LangGraph StateGraph         │
-                    │                                      │
-                    │  ┌─────────┐    ┌──────────────┐    │
-                    │  │ Vision  │───▶│  RAG_Lookup  │    │
-                    │  └─────────┘    └──────┬───────┘    │
-                    │                        │             │
-                    │               ┌────────▼────────┐   │
-                    │               │  Safety_Check   │   │
-                    │               └────────┬────────┘   │
-                    │                        │             │
-                    │               ┌────────▼────────┐   │
-                    │               │   Scheduler     │   │
-                    │               └────────┬────────┘   │
-                    │                        │             │
-                    │               ┌────────▼────────┐   │
-                    │               │  Verification   │   │
-                    │               └────────┬────────┘   │
-                    │                        │             │
-                    │               ┌────────▼────────┐   │
-                    │               │    Notifier     │   │
-                    │               └─────────────────┘   │
-                    └─────────────────────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────────────┐
-                    │         React Frontend               │
-                    │  Dashboard │ Upload │ Results        │
-                    │  MediChat  │ Admin Ops               │
-                    └─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                   Express / Node.js Server               │
+│                                                          │
+│   server.ts ──► src/api/routes.ts ──► src/graph/         │
+│                       │                  graph.invoke    │
+│                       │                  state.ts        │
+│                       │                  nodes/          │
+│                 src/sockets/                             │
+│                 socketEvents.ts ◄── node progress emit   │
+│                       │                                  │
+│                 src/database/                            │
+│                 models.ts ◄──► MongoDB                   │
+└──────────────────────────────────────────────────────────┘
+                         │
+┌────────────────────────▼─────────────────────────────────┐
+│              React + Vite Frontend (client/)             │
+│   Dashboard │ Upload │ Processing │ Results │ MediChat   │
+│                    Admin Ops                             │
+└──────────────────────────────────────────────────────────┘
 ```
+
+**Request flow:**
+1. Client calls `POST /api/analyze` with a prescription image
+2. `routes.ts` saves a pending record to MongoDB via `models.ts`
+3. `routes.ts` triggers `graph.invoke` — the LangGraph state machine runs
+4. Each agent node emits real-time status logs via `socketEvents.ts`
+5. On completion, the result is written back to MongoDB
+6. Client receives `job:completed` via Socket.io and renders results
+
+---
+
+## Agent Pipeline
+
+```
+Vision → RAG Lookup → Safety Check → Scheduler → Verification → Notifier
+```
+
+| Node | Responsibility |
+|---|---|
+| **Vision** | Prompts a Vision LLM to extract structured JSON from the prescription image |
+| **RAG Lookup** | Queries ChromaDB for drug profiles, side effects, and contraindications |
+| **Safety Check** | Cross-references extracted drugs with patient history; generates warnings |
+| **Scheduler** | Builds a Morning / Noon / Evening / Night medication adherence plan |
+| **Verification** | Computes a `confidence_score`; routes low-confidence results to admin queue |
+| **Notifier** | Emits the final result to Socket.io and updates MongoDB |
 
 ---
 ## Project Structure
@@ -69,180 +65,223 @@ The system accepts an image of a handwritten prescription, runs it through a 6-n
 ```
 ScriptStream/
 │
-├── agent/              # Agent workflows & automation
-├── client/             # React (Vite) frontend
-├── server/             # Express + TypeScript backend
-├── planning/           # Architecture docs
+├── client/                           # React + Vite frontend
+│   ├── public/                       # Static assets
+│   ├── src/                          # Application source
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── UploadIdle.jsx
+│   │   │   ├── Processing.jsx
+│   │   │   ├── AnalysisResults.jsx
+│   │   │   ├── MediChat.jsx
+│   │   │   ├── AdminOps.jsx
+│   │   │   └── Prescriptions.jsx
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   │   ├── useSocket.js          # Real-time Socket.io job tracking
+│   │   │   └── useUpload.js          # File upload + job_id handler
+│   │   ├── services/
+│   │   │   └── api.js                # Axios API service layer
+│   │   └── context/
+│   │       └── AppContext.jsx         # Global app state
+│   ├── index.html                    # Vite entry HTML
+│   ├── eslint.config.js
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── package.json
+│   ├── package-lock.json
+│   └── .gitignore
 │
-├── package.json
-├── README.md
-└── .gitignore
+├── server/                           # Express + TypeScript backend
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── routes.ts             # All REST endpoints + graph.invoke trigger
+│   │   │   └── auth.ts               # JWT middleware
+│   │   ├── sockets/
+│   │   │   └── socketEvents.ts       # Socket.io event handlers & emitters
+│   │   ├── database/
+│   │   │   └── models.ts             # Mongoose schemas — User, Prescription
+│   │   └── graph/                    # LangGraph AI state machine
+│   │       ├── graph.ts              # StateGraph — node wiring and edges
+│   │       ├── state.ts              # Shared state interface
+│   │       └── nodes/                # Vision, RAG, Safety, Scheduler, etc.
+│   ├── server.ts                     # Express entry point
+│   ├── tsconfig.json
+│   ├── .env.example
+│   ├── package.json
+│   ├── package-lock.json
+│   └── .gitignore
+│
+├── .agent/                           # Agentic dev workflow runner
+│   ├── agents/                       # Agent task definitions
+│   ├── get-shit-done/                # Task execution utilities
+│   ├── hooks/                        # Lifecycle hooks
+│   │   ├── gsd-check-update-worker.js
+│   │   ├── gsd-check-update.js
+│   │   ├── gsd-context-monitor.js
+│   │   ├── gsd-phase-boundary.sh
+│   │   ├── gsd-prompt-guard.js
+│   │   ├── gsd-read-guard.js
+│   │   ├── gsd-read-injection-scanner.js
+│   │   ├── gsd-session-state.sh
+│   │   ├── gsd-statusline.js
+│   │   ├── gsd-validate-commit.sh
+│   │   └── gsd-workflow-guard.js
+│   ├── skills/
+│   └── package.json
+│
+├── .planning/                        # Architecture & planning docs
+├── .gitignore
+├── architecture_diff.md              # Backend before/after evolution
+├── package-lock.json
+└── README.md
 ```
+
 
 ---
 
-
-## 🧠 State Schema
-
-All six agents communicate through a shared `TypedDict` state:
-
-```python
-class PrescriptionState(TypedDict):
-    image_path: str                  # Path to the uploaded prescription image
-    prescription_data: dict          # Structured JSON extracted by the Vision agent
-    rag_results: list[dict]          # Drug profiles retrieved from ChromaDB
-    safety_warnings: list[str]       # Interaction warnings from the Safety agent
-    daily_schedule: dict             # Morning/Noon/Evening/Night medication plan
-    confidence_score: float          # 0.0–1.0 reliability score
-    flagged_for_review: bool         # True if confidence < threshold
-    patient_id: str                  # Patient identifier for context
-    error: str | None                # Error message if any node fails
-```
-
----
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Orchestration | LangGraph |
 | LLM / Vision | Google Gemini / Anthropic Claude |
 | Vector Database | ChromaDB |
-| Embeddings | sentence-transformers |
-| Backend | FastAPI + Uvicorn |
+| Backend | Express.js + TypeScript |
+| Database | MongoDB + Mongoose |
+| Auth | JWT |
 | Real-time | Socket.io |
-| Frontend | React 18 + Tailwind CSS |
+| Frontend | React 18 + Vite + Tailwind CSS |
 | HTTP Client | Axios |
 | File Upload | react-dropzone |
-| Chat AI | Groq API (Llama 3) |
-| Containerization | Docker |
+| Chat AI | OpenRouter API |
 
 ---
-## 🚀 Getting Started
 
-### Prerequisites
+## State Schema
 
-- Python 3.10+
-- Node.js 18+
-- A Gemini or Anthropic API key
-- A Groq API key (for MediChat)
+All agent nodes share a single state object defined in `src/graph/state.ts`:
 
-### 1. Clone the repository
+```typescript
+interface PrescriptionState {
+  image_path: string;           // Uploaded prescription image path
+  prescription_data: object;    // Structured JSON from Vision node
+  rag_results: object[];        // Drug profiles from ChromaDB
+  safety_warnings: string[];    // Detected drug interactions
+  daily_schedule: object;       // Morning / Noon / Evening / Night plan
+  confidence_score: number;     // 0.0 – 1.0 reliability score
+  flagged_for_review: boolean;  // Routes to admin queue if true
+  patient_id: string;
+  error: string | null;
+}
+```
+
+---
+
+## Getting Started
+
+**Prerequisites:** Node.js 18+, MongoDB instance, Gemini API key, OpenRouter API key
+
+### 1. Clone
 
 ```bash
 git clone https://github.com/Radhikaa-chauhan/ScriptStream.git
 cd ScriptStream
 ```
 
-### 2. Backend setup
+### 2. Backend
 
 ```bash
-pip install -r requirements.txt
+cd server
+npm install
+cp .env.example .env
 ```
 
-Create a `.env` file in the root:
+Configure `.env`:
 
 ```env
-GEMINI_API_KEY=your_gemini_key_here
-GROQ_API_KEY=your_groq_key_here
-CHROMA_PERSIST_DIR=./data/chroma
-CONFIDENCE_THRESHOLD=0.85
+# Express Server Config
+PORT=8001
+GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+JWT_SECRET=your_super_secret_jwt_key_change_this
+
+# ChromaDB
+CHROMA_API_KEY=
+CHROMA_TENANT=
+CHROMA_DATABASE=ScriptStream
+
+# Database (MongoDB)
+MONGODB_URI=mongodb://localhost:27017/scriptstream
+
+# Notifications (Email / WhatsApp via n8n)
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_email_password
+N8N_WEBHOOK_URL=
 ```
 
-Ingest drug data into ChromaDB:
-
 ```bash
-python core/rag_engine.py --ingest
+npm run dev
 ```
 
-Start the FastAPI server:
+### 3. Frontend
 
 ```bash
-uvicorn main:app --reload --port 4000
-```
-
-### 3. Frontend setup
-
-```bash
-cd frontend
+cd client
 npm install
 ```
 
-Create `frontend/.env`:
+Configure `client/.env`:
 
 ```env
-REACT_APP_API_URL=http://localhost:4000/api
-REACT_APP_SOCKET_URL=http://localhost:4000
+VITE_API_URL=http://localhost:8001/api
+VITE_SOCKET_URL=http://localhost:8001
 ```
-
-Start the React dev server:
 
 ```bash
-npm start
-```
-
-The app will be available at `http://localhost:3000`.
-
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/analyze` | Upload a prescription image; returns `job_id` |
-| `GET` | `/api/result/{job_id}` | Poll for analysis result |
-| `GET` | `/api/prescriptions` | Fetch all prescriptions for a patient |
-| `GET` | `/api/prescriptions/{id}` | Fetch a single prescription result |
-| `POST` | `/api/chat` | Send a MediChat message with prescription context |
-| `POST` | `/api/admin/approve/{job_id}` | Admin approves and publishes a flagged result |
-| `POST` | `/api/admin/reject/{job_id}` | Admin rejects a scan |
-| `POST` | `/api/admin/escalate/{job_id}` | Admin escalates a case to a doctor |
-
-### Upload flow
-
-```
-POST /api/analyze  (multipart/form-data, field: "file")
-→ { "job_id": "JOB-1234", "status": "queued" }
-
-# Connect to Socket.io with job_id to receive live events:
-job:queued       → processing started
-job:processing   → { step, progress }
-job:completed    → { result }
-job:failed       → { error }
-log              → { time, level, msg }
+npm run dev   # → http://localhost:5173
 ```
 
 ---
 
-## 🐳 Docker
+## API Reference
 
-Build and run the full stack with Docker Compose:
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | ✗ | Login, returns JWT |
+| `POST` | `/api/auth/register` | ✗ | Register new user |
+| `POST` | `/api/analyze` | ✓ | Upload prescription image → returns `job_id` |
+| `GET` | `/api/result/:job_id` | ✓ | Poll for analysis result |
+| `GET` | `/api/prescriptions` | ✓ | All prescriptions for current user |
+| `GET` | `/api/prescriptions/:id` | ✓ | Single prescription detail |
+| `POST` | `/api/chat` | ✓ | MediChat message with prescription context |
+| `POST` | `/api/admin/approve/:job_id` | ✓ | Approve flagged scan |
+| `POST` | `/api/admin/reject/:job_id` | ✓ | Reject scan |
+| `POST` | `/api/admin/escalate/:job_id` | ✓ | Escalate to doctor |
 
-```bash
-docker-compose up --build
+### Socket.io Events
+
+Connect with your `job_id` as a query param to receive live updates:
+
+```
+job:queued        →  { jobId }
+job:processing    →  { jobId, step, progress }
+job:completed     →  { jobId, result }
+job:failed        →  { jobId, error }
+log               →  { time, level, msg }
 ```
 
-This starts the FastAPI backend on port `4000` and the React frontend on port `3000`.
+---
+
+## Safety & Compliance
+
+- No patient data is sent to third-party services beyond the LLM API call for OCR extraction.
+- The Admin review panel ensures no AI result reaches a patient without human sign-off when `confidence_score` is below the configured threshold.
+- MediChat responses are sourced from the FDA drug database. All responses carry a disclaimer that they do not substitute professional medical advice.
 
 ---
 
-## 📋 Environment Variables
+## License
 
-| Variable | Description | Default |
-|---|---|---|
-| `GEMINI_API_KEY` | Google Gemini API key for Vision OCR | — |
-| `GROQ_API_KEY` | Groq API key for MediChat (Llama 3) | — |
-| `CHROMA_PERSIST_DIR` | Directory for ChromaDB persistence | `./data/chroma` |
-| `CONFIDENCE_THRESHOLD` | Minimum score before flagging for review | `0.85` |
-| `REACT_APP_API_URL` | Backend API base URL (frontend) | `http://localhost:4000/api` |
-| `REACT_APP_SOCKET_URL` | Socket.io server URL (frontend) | `http://localhost:4000` |
-
----
-## 🔒 Safety & Compliance
-
-- All prescription data is processed locally; no patient data is sent to third-party services except the LLM API for OCR extraction.
-- The Admin review panel ensures no AI-extracted result reaches a patient without human verification when confidence is below threshold.
-- MediChat responses are derived from FDA drug database data and carry a disclaimer that they do not substitute professional medical advice.
-
----
-
+MIT
