@@ -99,7 +99,7 @@ function buildScheduleRows(extractedMeds, schedule) {
 export default function AnalysisResults() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { analysisResult } = useApp();
+  const { analysisResult, setPrescriptionId: setGlobalPrescriptionId } = useApp();
   const prescriptionId = location.state?.prescriptionId;
   const [alertDismissed, setAlertDismissed] = useState(false);
 
@@ -107,6 +107,10 @@ export default function AnalysisResults() {
   const [loading, setLoading] = useState(!analysisResult && !!prescriptionId);
 
   useEffect(() => {
+    if (prescriptionId) {
+      setGlobalPrescriptionId(prescriptionId);
+    }
+
     if (!analysisResult && prescriptionId) {
       getPrescriptionById(prescriptionId)
         .then((res) => {
@@ -201,6 +205,13 @@ export default function AnalysisResults() {
               )}
             </div>
             <div className="flex gap-3">
+              <button
+                onClick={() => navigate("/chat", { state: { prescriptionId } })}
+                className="btn-secondary text-sm"
+              >
+                <MessageSquare size={14} className="text-brand-600" />
+                Chat with AI
+              </button>
               <button
                 onClick={() => navigate("/processing")}
                 className="btn-secondary text-sm"
@@ -350,9 +361,18 @@ export default function AnalysisResults() {
               <div className="flex flex-col gap-3">
                 {medications.map((med, i) => (
                   <div key={i} className="bg-surface-secondary rounded-xl p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <StatusIcon status={med.status} />
-                      <span className="font-semibold text-sm text-ink">{med.name}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <StatusIcon status={med.status} />
+                        <span className="font-semibold text-sm text-ink">{med.name}</span>
+                      </div>
+                      <button 
+                        onClick={() => navigate("/chat", { state: { prescriptionId } })}
+                        className="p-1.5 rounded-lg hover:bg-brand-50 text-brand-600 transition-colors"
+                        title="Ask about this drug"
+                      >
+                        <MessageSquare size={13} />
+                      </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
