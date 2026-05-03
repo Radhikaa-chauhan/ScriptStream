@@ -1,8 +1,8 @@
 import Redis from "ioredis";
-import dotenv from "dotenv";
+
 
 console.log("[REDIS] Loading Redis connection...");
-dotenv.config();
+
 
 /**
  * Standard Redis Connection
