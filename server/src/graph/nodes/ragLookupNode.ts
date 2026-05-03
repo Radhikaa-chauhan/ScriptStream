@@ -35,7 +35,7 @@ export const ragLookupNode = async (state: State) => {
 
   emitStatus(
     "processing",
-    `RAG Lookup: Querying ChromaDB for ${drugNames.length} medication(s): ${drugNames.join(", ")}`
+    `RAG Lookup: Querying database for ${drugNames.length} medication(s): ${drugNames.join(", ")}`
   );
 
   try {

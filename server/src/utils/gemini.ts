@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import dotenv from "dotenv";
+
 
 console.log("[GEMINI] Loading Gemini client...");
-dotenv.config();
+
 
 /**
  * Centralized Gemini AI Client
