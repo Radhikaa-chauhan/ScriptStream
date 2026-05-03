@@ -17,42 +17,10 @@ import Footer from "../components/layout/Footer";
 import { useApp } from "../context/AppContext";
 import { getPrescriptionById } from "../services/api";
 
-// ── Demo / fallback data (shown when no real analysis result is available) ──
-const DEMO_MEDICATIONS = [
-  {
-    name: "Clopidogrel 75mg",
-    status: "ok",
-    dosage: "1 Tablet",
-    frequency: "Daily (Once)",
-    instructions: "Take with or without food",
-  },
-  {
-    name: "Atorvastatin 20mg",
-    status: "ok",
-    dosage: "1 Tablet",
-    frequency: "Nightly",
-    instructions: "Take at bedtime",
-  },
-  {
-    name: "Lisinopril 10mg",
-    status: "warn",
-    dosage: "0.5 Tablet",
-    frequency: "Every Morning",
-    instructions: "Monitor blood pressure regularly",
-  },
-];
-
-const DEMO_SCHEDULE = {
-  morning: ["Lisinopril 10mg - 8:00 AM"],
-  afternoon: [],
-  evening: [],
-  night: ["Clopidogrel 75mg - 9:00 PM", "Atorvastatin 20mg - 10:00 PM"],
-  notes: [],
-};
-
-const DEMO_WARNINGS = [
-  "Interaction Warning: Clopidogrel has a major interaction risk with Warfarin. This combination significantly increases bleeding risk.",
-];
+// No demo data needed anymore
+const DEMO_MEDICATIONS = [];
+const DEMO_SCHEDULE = { morning: [], afternoon: [], evening: [], night: [], notes: [] };
+const DEMO_WARNINGS = [];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -154,11 +122,7 @@ export default function AnalysisResults() {
   // Build schedule rows
   const scheduleRows = rawMedications
     ? buildScheduleRows(rawMedications, schedule)
-    : [
-        { med: "Clopidogrel 75mg", morning: true, noon: false, evening: false, night: false },
-        { med: "Atorvastatin 20mg", morning: false, noon: false, evening: false, night: true },
-        { med: "Lisinopril 10mg", morning: true, noon: false, evening: false, night: false },
-      ];
+    : [];
 
   // Schedule notes from AI
   const scheduleNotes = schedule?.notes ?? [];
@@ -359,33 +323,37 @@ export default function AnalysisResults() {
               </div>
 
               <div className="flex flex-col gap-3">
-                {medications.map((med, i) => (
-                  <div key={i} className="bg-surface-secondary rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <StatusIcon status={med.status} />
-                        <span className="font-semibold text-sm text-ink">{med.name}</span>
+                {!medications.length ? (
+                  <p className="text-sm text-ink-muted">No medications extracted from this record.</p>
+                ) : (
+                  medications.map((med, i) => (
+                    <div key={i} className="bg-surface-secondary rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <StatusIcon status={med.status} />
+                          <span className="font-semibold text-sm text-ink">{med.name}</span>
+                        </div>
+                        <button 
+                          onClick={() => navigate("/chat", { state: { prescriptionId } })}
+                          className="p-1.5 rounded-lg hover:bg-brand-50 text-brand-600 transition-colors"
+                          title="Ask about this drug"
+                        >
+                          <MessageSquare size={13} />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => navigate("/chat", { state: { prescriptionId } })}
-                        className="p-1.5 rounded-lg hover:bg-brand-50 text-brand-600 transition-colors"
-                        title="Ask about this drug"
-                      >
-                        <MessageSquare size={13} />
-                      </button>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-ink-muted uppercase tracking-wide font-medium mb-0.5">Frequency</p>
+                          <p className="font-semibold text-ink">{med.frequency}</p>
+                        </div>
+                        <div>
+                          <p className="text-ink-muted uppercase tracking-wide font-medium mb-0.5">Instructions</p>
+                          <p className="font-semibold text-ink">{med.instructions}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <p className="text-ink-muted uppercase tracking-wide font-medium mb-0.5">Frequency</p>
-                        <p className="font-semibold text-ink">{med.frequency}</p>
-                      </div>
-                      <div>
-                        <p className="text-ink-muted uppercase tracking-wide font-medium mb-0.5">Instructions</p>
-                        <p className="font-semibold text-ink">{med.instructions}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {/* Adherence tip */}
