@@ -11,7 +11,7 @@ import { io } from "socket.io-client";
  *   "processing" | "success" | "warning" | "waiting" | "completed" | "failed"
  */
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://scriptstream.onrender.com";
+const SOCKET_URL = "https://scriptstream.onrender.com";
 
 export function useSocket(jobId) {
   const socketRef = useRef(null);

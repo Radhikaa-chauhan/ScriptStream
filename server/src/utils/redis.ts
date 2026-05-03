@@ -13,20 +13,34 @@ const redisOptions: RedisOptions = {
   // Upstash requires TLS for external connections
   tls: REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
 
-  // Important for Upstash/Serverless: 
-  // Prevents Upstash from killing the connection when the worker is idle
-  keepAlive: 10000,
+/**
+ * Standard Redis Connection
+ * Used by BullMQ for queues and workers.
+ */
+let redisConnection: Redis;
 
-  // Optional: Auto-reconnect strategies
-  retryStrategy(times) {
-    console.warn(`[REDIS] Retrying connection: attempt ${times}`);
-    return Math.min(times * 50, 2000);
-  },
-};
+if (process.env.REDIS_URL) {
+  // If REDIS_URL is provided (e.g., from Upstash), use it directly
+  redisConnection = new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+  });
+} else {
+  const redisConfig: RedisOptions = {
+    host: process.env.REDIS_HOST || "127.0.0.1",
+    port: parseInt(process.env.REDIS_PORT || "6379"),
+    password: process.env.REDIS_PASSWORD, // Added password support
+    maxRetriesPerRequest: null,
+  };
+  
+  // If using a cloud host but no REDIS_URL, safely assume TLS might be needed if not localhost
+  if (redisConfig.host !== "127.0.0.1" && redisConfig.host !== "localhost") {
+    redisConfig.tls = {};
+  }
 
-console.log("[REDIS] Initializing connection...");
+  redisConnection = new Redis(redisConfig);
+}
 
-export const redisConnection = new Redis(REDIS_URL, redisOptions);
+export { redisConnection };
 
 redisConnection.on("error", (err) => {
   console.error("[REDIS] ❌ Connection error:", err.message);

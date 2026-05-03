@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://scriptstream.onrender.com/api";
+const API_BASE = "https://scriptstream.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -54,7 +54,7 @@ export const analyzePrescription = (imageBase64) =>
 
 /**
  * GET /api/prescriptions
- * Fetch all prescriptions for the authenticated user
+ * Fetch all pre=scriptions for the authenticated user
  */
 export const getPrescriptions = () => api.get("/prescriptions");
 

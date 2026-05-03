@@ -6,6 +6,13 @@ import { analysisQueue } from "../workers/graphWorker";
 import adminRoutes from "./admin";
 
 const router = Router();
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+const estimateBase64Bytes = (image: string) => {
+  const base64Data = image.startsWith("data:") ? image.split(",")[1] || "" : image;
+  const padding = (base64Data.match(/=+$/)?.[0].length) || 0;
+  return Math.floor((base64Data.length * 3) / 4) - padding;
+};
 
 // Mount Admin Routes
 router.use("/admin", adminRoutes);
@@ -25,6 +32,13 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
       return res.status(400).json({ message: "Image is required" });
     }
 
+    const imageSizeBytes = estimateBase64Bytes(image);
+    if (imageSizeBytes > MAX_IMAGE_BYTES) {
+      return res.status(413).json({
+        message: "Image is too large. Please upload a JPG or PNG under 5MB."
+      });
+    }
+
     const userId = req.user?.id;
     console.log("[ROUTES] User ID:", userId);
 
@@ -42,7 +56,6 @@ router.post("/analyze", authenticateJWT as any, async (req: AuthRequest, res: an
     await analysisQueue.add("analyze-job", {
       type: "start_analysis",
       prescriptionId: newPrescription._id.toString(),
-      image,
       userId
     });
     console.log("[ROUTES] ✅ Job added to queue");
