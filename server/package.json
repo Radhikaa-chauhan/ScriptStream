@@ -4,8 +4,8 @@
   "description": "Intelligent Multi-Agent Medical Prescription Digitizer",
   "main": "server.ts",
   "scripts": {
-    "start": "ts-node server.ts",
-    "dev": "nodemon server.ts",
+    "start": "tsx server.ts",
+    "dev": "tsx server.ts",
     "build": "tsc"
   },
   "dependencies": {
@@ -17,7 +17,6 @@
     "bcryptjs": "^3.0.3",
     "bullmq": "^4.12.0",
     "chromadb": "^1.10.5",
-    "chromadb-default-embed": "^2.14.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -40,6 +39,7 @@
     "@types/nodemailer": "^6.4.14",
     "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.2.2"
   }
 }

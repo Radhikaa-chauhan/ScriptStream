@@ -3,13 +3,14 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import { connectDB } from "./src/database/db";
 import apiRoutes from "./src/api/routes";
 import { initSockets } from "./src/sockets/socketEvents";
 import { ingestDrugs } from "./src/rag/drugDatabase";
 
 console.log("[SERVER] Loading server.ts...");
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 console.log("[SERVER] Environment loaded");
 
 const app = express();
@@ -46,7 +47,7 @@ import "./src/workers/graphWorker";
 
 // Legacy export removed to prevent circular dependencies
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8001;
 
 const startServer = async () => {
   try {
