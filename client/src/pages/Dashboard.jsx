@@ -13,58 +13,58 @@ import {
   MessageSquare,
   RefreshCw,
   ChevronRight,
-  Loader2
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
 import { useAuth } from "../context/AuthContext";
-import { getPrescriptions } from "../services/api";
 
-// Added Component wrapper and export
+const scheduleItems = [
+  { time: "08:00 AM", med: "Metformin 500mg", status: "taken" },
+  { time: "08:00 AM", med: "Vitamin D3", status: "taken" },
+  { time: "10:00 AM", med: "Lisinopril 10mg", status: "upcoming", highlight: true },
+  { time: "02:00 PM", med: "Atorvastatin 20mg", status: "upcoming" },
+  { time: "08:00 PM", med: "Metformin 500mg", status: "upcoming" },
+];
+
+const prescriptions = [
+  { id: "RX-9012", date: "Oct 24, 2024", physician: "Dr. Sarah Smith", meds: "Lisinopril, Atorvastatin", status: "Verified", accuracy: 98 },
+  { id: "RX-8843", date: "Oct 12, 2024", physician: "Dr. James Wong", meds: "Metformin", status: "Review Required", accuracy: 82 },
+  { id: "RX-7721", date: "Sep 28, 2024", physician: "Dr. Sarah Smith", meds: "Amoxicillin", status: "Verified", accuracy: 99 },
+  { id: "RX-6502", date: "Sep 15, 2024", physician: "General Health Clinic", meds: "Vitamin D3", status: "Verified", accuracy: 96 },
+  { id: "RX-5491", date: "Aug 30, 2024", physician: "Dr. Emily Brown", meds: "Ibuprofen 600mg", status: "Verified", accuracy: 97 },
+];
+
+const insights = [
+  {
+    color: "border-amber-400 bg-amber-50",
+    icon: <AlertTriangle size={16} className="text-amber-600" />,
+    title: "Potential Interaction",
+    desc: "Metformin and recent NSAID upload (Ibuprofen) may affect renal clearance. Discuss with your GP.",
+  },
+  {
+    color: "border-blue-400 bg-blue-50",
+    icon: <TrendingUp size={16} className="text-blue-600" />,
+    title: "Optimization Tip",
+    desc: "Studies suggest Lisinopril may be more effective when taken in the evening for blood pressure control.",
+  },
+  {
+    color: "border-green-400 bg-green-50",
+    icon: <Zap size={16} className="text-green-600" />,
+    title: "Adherence Milestone",
+    desc: "You've maintained 100% adherence for 7 days! Consistency significantly improves long-term outcomes.",
+  },
+];
+
 export default function Dashboard() {
-  // Added navigate initialization
   const navigate = useNavigate();
-
-  // Added user destructuring to get the firstName
   const { user } = useAuth();
-  const firstName = user?.firstName || "Patient";
-
-  // Mock data removed for production database sync
-  const scheduleItems = [];
-  const insights = [];
-
-  const [prescriptions, setPrescriptions] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data } = await getPrescriptions();
-        setPrescriptions(data.prescriptions || []);
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const firstName = user?.name?.split(" ")[0] || "there";
 
   const getStatusBadge = (status) => {
-    if (status === "processed") return <span className="badge-success">Verified</span>;
-    if (status === "failed") return <span className="badge-danger">Failed</span>;
-    return <span className="badge-warning">Review Required</span>;
+    if (status === "Verified") return <span className="badge-success">{status}</span>;
+    if (status === "Review Required") return <span className="badge-danger">{status}</span>;
+    return <span className="badge-warning">{status}</span>;
   };
-
-  const formatDate = (dateStr) => {
-    try {
-      return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    } catch { return dateStr; }
-  };
-
-  const activeMedsCount = prescriptions
-    .filter((rx) => rx.status === "processed")
-    .reduce((acc, rx) => acc + (rx.extractedData?.medications?.length || 0), 0);
 
   return (
     <AppLayout>
@@ -92,8 +92,8 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-xs font-medium text-ink-muted uppercase tracking-wide">Active Medications</p>
-                <p className="text-3xl font-display font-bold text-ink leading-none mt-0.5">{activeMedsCount}</p>
-                <p className="text-xs text-ink-muted mt-0.5">Across your verified records</p>
+                <p className="text-3xl font-display font-bold text-ink leading-none mt-0.5">4</p>
+                <p className="text-xs text-ink-muted mt-0.5">Across 3 health conditions</p>
               </div>
             </div>
             <div className="card flex items-center gap-4">
@@ -102,8 +102,8 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-xs font-medium text-ink-muted uppercase tracking-wide">Next Dose In</p>
-                <p className="text-3xl font-display font-bold text-ink leading-none mt-0.5">--</p>
-                <p className="text-xs text-ink-muted mt-0.5">No immediate doses scheduled</p>
+                <p className="text-3xl font-display font-bold text-ink leading-none mt-0.5">42m</p>
+                <p className="text-xs text-ink-muted mt-0.5">Lisinopril (10mg) @ 10:00 AM</p>
               </div>
             </div>
             <div className="card flex items-center gap-4">
@@ -130,28 +130,26 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-1">
-              {scheduleItems.length === 0 ? (
-                <p className="text-sm text-ink-muted py-4">No medication schedule found. Upload a prescription to generate one.</p>
-              ) : (
-                scheduleItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className={`flex-shrink-0 w-44 rounded-xl border p-3.5 transition-all ${item.highlight
-                        ? "border-brand-400 bg-brand-50 shadow-sm"
-                        : "border-slate-100 bg-surface-secondary"
-                      }`}
+              {scheduleItems.map((item, i) => (
+                <div
+                  key={i}
+                  className={`flex-shrink-0 w-44 rounded-xl border p-3.5 transition-all ${
+                    item.highlight
+                      ? "border-brand-400 bg-brand-50 shadow-sm"
+                      : "border-slate-100 bg-surface-secondary"
+                  }`}
+                >
+                  <p className="text-xs font-medium text-ink-muted">{item.time}</p>
+                  <p className="text-sm font-semibold text-ink mt-1 leading-snug">{item.med}</p>
+                  <span
+                    className={`text-xs mt-2 inline-block font-medium ${
+                      item.status === "taken" ? "text-green-600" : "text-ink-muted"
+                    }`}
                   >
-                    <p className="text-xs font-medium text-ink-muted">{item.time}</p>
-                    <p className="text-sm font-semibold text-ink mt-1 leading-snug">{item.med}</p>
-                    <span
-                      className={`text-xs mt-2 inline-block font-medium ${item.status === "taken" ? "text-green-600" : "text-ink-muted"
-                        }`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                ))
-              )}
+                    {item.status}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -171,7 +169,7 @@ export default function Dashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    {["ID", "Date", "Physician", "Status"].map((h) => (
+                    {["ID", "Date", "Physician", "Status", "Accuracy"].map((h) => (
                       <th key={h} className="text-left py-2 pr-4 text-xs font-semibold text-ink-muted uppercase tracking-wide">
                         {h}
                       </th>
@@ -179,38 +177,23 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="4" className="py-8 text-center">
-                        <Loader2 className="animate-spin inline text-brand-600" />
+                  {prescriptions.map((rx) => (
+                    <tr
+                      key={rx.id}
+                      className="border-b border-slate-50 hover:bg-surface-secondary transition-colors cursor-pointer"
+                      onClick={() => navigate("/prescriptions")}
+                    >
+                      <td className="py-3 pr-4 text-brand-600 font-semibold">{rx.id}</td>
+                      <td className="py-3 pr-4 text-ink-secondary">{rx.date}</td>
+                      <td className="py-3 pr-4">
+                        <span className="text-ink font-medium">{rx.physician}</span>
+                        <br />
+                        <span className="text-xs text-ink-muted">{rx.meds}</span>
                       </td>
+                      <td className="py-3 pr-4">{getStatusBadge(rx.status)}</td>
+                      <td className="py-3 font-semibold text-green-600">{rx.accuracy}%</td>
                     </tr>
-                  ) : prescriptions.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="py-8 text-center text-ink-muted">
-                        No prescriptions found.
-                      </td>
-                    </tr>
-                  ) : (
-                    prescriptions.slice(0, 5).map((rx) => (
-                      <tr
-                        key={rx._id}
-                        className="border-b border-slate-50 hover:bg-surface-secondary transition-colors cursor-pointer"
-                        onClick={() => navigate("/prescriptions")}
-                      >
-                        <td className="py-3 pr-4 text-brand-600 font-semibold">{rx._id?.slice(-8)}</td>
-                        <td className="py-3 pr-4 text-ink-secondary">{formatDate(rx.createdAt)}</td>
-                        <td className="py-3 pr-4">
-                          <span className="text-ink font-medium">{rx.extractedData?.doctorName || "Unknown Physician"}</span>
-                          <br />
-                          <span className="text-xs text-ink-muted">
-                            {rx.extractedData?.medications?.map((m) => m.name).join(", ") || "No meds listed"}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-4">{getStatusBadge(rx.status)}</td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -223,19 +206,15 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-ink-muted mb-3">Proactive Analysis • Based on current prescription sync</p>
               <div className="flex flex-col gap-3">
-                {insights.length === 0 ? (
-                  <p className="text-xs text-ink-muted">No insights available yet. Insights will appear after your next AI analysis.</p>
-                ) : (
-                  insights.map((ins, i) => (
-                    <div key={i} className={`rounded-xl border-l-4 p-3.5 ${ins.color}`}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {ins.icon}
-                        <span className="text-xs font-bold text-ink">{ins.title}</span>
-                      </div>
-                      <p className="text-xs text-ink-secondary leading-relaxed">{ins.desc}</p>
+                {insights.map((ins, i) => (
+                  <div key={i} className={`rounded-xl border-l-4 p-3.5 ${ins.color}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {ins.icon}
+                      <span className="text-xs font-bold text-ink">{ins.title}</span>
                     </div>
-                  ))
-                )}
+                    <p className="text-xs text-ink-secondary leading-relaxed">{ins.desc}</p>
+                  </div>
+                ))}
               </div>
               <button
                 onClick={() => navigate("/chat")}
@@ -263,4 +242,4 @@ export default function Dashboard() {
       </div>
     </AppLayout>
   );
-} 
+}
