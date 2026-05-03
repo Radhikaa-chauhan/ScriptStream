@@ -158,6 +158,16 @@ export default function Login() {
         </div>
 
         {/* Bottom info */}
+        <div className="flex items-center justify-center gap-3 mt-6 text-xs text-ink-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            RAG Engine Active
+          </span>
+          <span>•</span>
+          <span>AES-256 Encrypted</span>
+          <span>•</span>
+          <span>FDA Synced</span>
+        </div>
       </div>
     </div>
   );

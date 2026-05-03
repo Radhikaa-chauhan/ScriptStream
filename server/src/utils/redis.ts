@@ -1,38 +1,24 @@
-import { Redis, RedisOptions } from "ioredis";
+import Redis, { RedisOptions } from "ioredis";
 
-// Load from your .env file
-const REDIS_URL = process.env.UPSTASH_REDIS_URL || "redis://127.0.0.1:6379";
-
-const redisOptions: RedisOptions = {
-  // CRITICAL for Upstash: Force DB 0
-  db: 0,
-  
-  // CRITICAL for BullMQ: Must be null
-  maxRetriesPerRequest: null,
-
-  // Upstash requires TLS for external connections
-  tls: REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
+console.log("[REDIS] Loading Redis connection...");
 
 /**
- * Standard Redis Connection
- * Used by BullMQ for queues and workers.
+ * Standard Redis connection used by BullMQ for queues and workers.
  */
 let redisConnection: Redis;
 
 if (process.env.REDIS_URL) {
-  // If REDIS_URL is provided (e.g., from Upstash), use it directly
   redisConnection = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null,
   });
 } else {
   const redisConfig: RedisOptions = {
     host: process.env.REDIS_HOST || "127.0.0.1",
-    port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD, // Added password support
+    port: parseInt(process.env.REDIS_PORT || "6379", 10),
+    password: process.env.REDIS_PASSWORD,
     maxRetriesPerRequest: null,
   };
-  
-  // If using a cloud host but no REDIS_URL, safely assume TLS might be needed if not localhost
+
   if (redisConfig.host !== "127.0.0.1" && redisConfig.host !== "localhost") {
     redisConfig.tls = {};
   }
@@ -43,9 +29,9 @@ if (process.env.REDIS_URL) {
 export { redisConnection };
 
 redisConnection.on("error", (err) => {
-  console.error("[REDIS] ❌ Connection error:", err.message);
+  console.error("[REDIS] Connection Error:", err);
 });
 
-redisConnection.on("ready", () => {
-  console.log("[REDIS] ✅ Successfully connected to Upstash");
+redisConnection.on("connect", () => {
+  console.log("[REDIS] Connected to Redis successfully.");
 });
