@@ -1,7 +1,7 @@
 import { Queue, Worker, Job } from "bullmq";
 import { redisConnection } from "../utils/redis";
 import { graph } from "../graph/graph";
-import { Prescription } from "../database/models";
+import { Prescription, User } from "../database/models";
 import { emitStatus, emitResult } from "../sockets/socketEvents";
 
 console.log("[WORKER] Initializing BullMQ worker...");
@@ -23,7 +23,6 @@ console.log("[WORKER] ✅ Queue created");
 interface StartAnalysisJob {
   type: "start_analysis";
   prescriptionId: string;
-  image: string;
   userId: string;
 }
 
@@ -48,12 +47,16 @@ export const analysisWorker = new Worker<AnalysisJobData>(
       console.log("[WORKER] 🔠 Starting graph invocation for prescription:", prescriptionId);
       if (type === "start_analysis") {
         console.log("[WORKER] Type: START_ANALYSIS - executing full workflow");
-        const { image, userId } = job.data as StartAnalysisJob;
+        const { userId } = job.data as StartAnalysisJob;
+        const prescription = await Prescription.findById(prescriptionId);
+
+        if (!prescription?.originalImage) {
+          throw new Error("Prescription image not found in database.");
+        }
         
         let patientEmail = "";
         let patientPhone = "";
         if (userId) {
-          const { User } = require("../database/models");
           const user = await User.findById(userId);
           if (user) {
             patientEmail = user.email || "";
@@ -63,7 +66,7 @@ export const analysisWorker = new Worker<AnalysisJobData>(
         }
 
         await graph.invoke({
-          prescriptionImage: image,
+          prescriptionImage: prescription.originalImage,
           patientEmail,
           patientPhone,
           status: "started",

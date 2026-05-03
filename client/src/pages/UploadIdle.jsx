@@ -26,7 +26,7 @@ const guidelines = [
 ];
 
 const ACCEPTED_TYPES = { "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"], "application/pdf": [".pdf"] };
-const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function UploadIdle() {
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ export default function UploadIdle() {
     (accepted, rejected) => {
       if (rejected.length > 0) {
         const err = rejected[0].errors[0];
-        setDropError(err.code === "file-too-large" ? "File exceeds 15MB limit." : "Invalid file type. Use JPG, PNG, or PDF.");
+        setDropError(err.code === "file-too-large" ? "File exceeds 5MB limit." : "Invalid file type. Use JPG, PNG, or PDF.");
         return;
       }
       if (accepted.length > 0) {
@@ -141,7 +141,7 @@ export default function UploadIdle() {
                   Select Image File
                 </button>
                 <p className="text-xs text-ink-muted font-medium tracking-wide">
-                  SUPPORTED: JPG, PNG, PDF (MAX 15MB)
+                  SUPPORTED: JPG, PNG, PDF (MAX 5MB)
                 </p>
               </div>
             )}
