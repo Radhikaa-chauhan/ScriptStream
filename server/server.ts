@@ -16,14 +16,19 @@ console.log("[SERVER] Environment loaded");
 const app = express();
 console.log("[SERVER] Express app created");
 const server = http.createServer(app);
+const allowedOrigins = [
+  "http://localhost:5173", 
+  "https://script-stream-mu.vercel.app"
+];
+
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust for production
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST","DELETE", "PUT"]
   }
 });
 
-app.use(cors());
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "50mb" }));
 
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
