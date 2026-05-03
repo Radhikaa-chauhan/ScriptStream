@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, FileText, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
-import { getPrescriptions } from "../services/api";
+import { getPrescriptions, deletePrescription } from "../services/api";
 
 // Fallback mock data when backend returns no results or errors
 const mockPrescriptions = [
@@ -65,6 +65,27 @@ export default function Prescriptions() {
     fetchData();
   }, []);
 
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this prescription?")) return;
+
+    // Check if it's a mock ID (e.g. RX-XXXX) or a real MongoDB ObjectId
+    const isMock = typeof id === 'string' && id.startsWith('RX-');
+
+    if (isMock) {
+      setPrescriptions(prev => prev.filter(rx => rx._id !== id));
+      return;
+    }
+
+    try {
+      await deletePrescription(id);
+      setPrescriptions(prev => prev.filter(rx => rx._id !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete prescription. This record may have already been removed.");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col min-h-[calc(100vh-56px)]">
@@ -114,7 +135,14 @@ export default function Prescriptions() {
                       <td className="py-3 pr-4 text-ink-secondary">{getMedsList(rx)}</td>
                       <td className="py-3 pr-4">{getStatusBadge(rx.status)}</td>
                       <td className="py-3 pr-4 font-semibold text-green-600">{rx.confidenceScore || 0}%</td>
-                      <td className="py-3">
+                      <td className="py-3 flex gap-2 justify-end pr-2">
+                        <button 
+                          onClick={(e) => handleDelete(e, rx._id)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-ink-muted hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                         <button className="p-1.5 rounded-lg hover:bg-brand-50 text-ink-muted hover:text-brand-600 transition-colors">
                           <ExternalLink size={13} />
                         </button>

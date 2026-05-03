@@ -144,9 +144,7 @@ Return ONLY valid JSON (no markdown):
       };
     }
 
-    // =========================
-    // ✅ SUCCESS
-    // =========================
+
     emitStatus(
       "waiting",
       "Vision Agent: Extraction complete. Please verify the medication list."

@@ -5,15 +5,19 @@ import {
   Search,
   CheckCircle2,
   X,
-  ZoomIn,
   Loader2,
   RefreshCw,
   Clock,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import Footer from "../components/layout/Footer";
-import { getPendingPrescriptions, verifyAdminPrescription } from "../services/api";
+import { 
+  getPendingPrescriptions, 
+  verifyAdminPrescription,
+  deleteAdminPrescription 
+} from "../services/api";
 import { useApp } from "../context/AppContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -129,7 +133,6 @@ export default function AdminOps() {
     setActionLoading(true);
     setActionMsg(null);
     try {
-      // For now mark as failed locally (no dedicated reject endpoint yet)
       setActionMsg({ type: "warning", text: "⚠️ Scan rejected. Prescription has been marked as failed." });
       setPrescriptions((prev) =>
         prev.map((p) =>
@@ -138,6 +141,23 @@ export default function AdminOps() {
       );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async (e, id) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Admin: Permanently delete this prescription record? This cannot be undone.")) return;
+
+    try {
+      await deleteAdminPrescription(id);
+      setPrescriptions(prev => prev.filter(p => p._id !== id));
+      if (selectedRx?._id === id) {
+        setPanelOpen(false);
+        setSelectedRx(null);
+      }
+    } catch (err) {
+      console.error("Admin delete error:", err);
+      alert("Failed to delete prescription");
     }
   };
 
@@ -249,11 +269,10 @@ export default function AdminOps() {
                       <tr
                         key={rx._id}
                         onClick={() => openPanel(rx)}
-                        className={`border-b border-slate-50 cursor-pointer transition-colors ${
-                          selectedRx?._id === rx._id && panelOpen
+                        className={`border-b border-slate-50 cursor-pointer transition-colors ${selectedRx?._id === rx._id && panelOpen
                             ? "bg-brand-50"
                             : "hover:bg-surface-secondary"
-                        }`}
+                          }`}
                       >
                         <td className="py-3 pr-4 font-semibold text-brand-600">
                           ...{rx._id?.toString().slice(-8)}
@@ -266,13 +285,20 @@ export default function AdminOps() {
                           {rx.extractedData?.medications?.map((m) => m.name).join(", ") || "—"}
                         </td>
                         <td className="py-3 pr-4">{statusBadge(rx.status)}</td>
-                        <td className="py-3">
-                          {rx.status === "awaiting_verification" && (
+                        <td className="py-3 flex items-center justify-between pr-3">
+                          {rx.status === "awaiting_verification" ? (
                             <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
                               <ShieldAlert size={12} />
                               Review
                             </span>
-                          )}
+                          ) : <span />}
+                          <button
+                            onClick={(e) => handleDelete(e, rx._id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-ink-muted hover:text-red-600 transition-colors"
+                            title="Admin Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -381,13 +407,12 @@ export default function AdminOps() {
                   {/* Action message */}
                   {actionMsg && (
                     <div
-                      className={`text-xs rounded-xl px-4 py-3 leading-relaxed ${
-                        actionMsg.type === "success"
+                      className={`text-xs rounded-xl px-4 py-3 leading-relaxed ${actionMsg.type === "success"
                           ? "bg-green-50 border border-green-200 text-green-700"
                           : actionMsg.type === "warning"
-                          ? "bg-amber-50 border border-amber-200 text-amber-700"
-                          : "bg-red-50 border border-red-200 text-red-700"
-                      }`}
+                            ? "bg-amber-50 border border-amber-200 text-amber-700"
+                            : "bg-red-50 border border-red-200 text-red-700"
+                        }`}
                     >
                       {actionMsg.text}
                     </div>
@@ -416,6 +441,13 @@ export default function AdminOps() {
                         className="btn-secondary justify-center text-sm w-full"
                       >
                         Reject Scan
+                      </button>
+                      <button
+                        onClick={() => handleDelete(null, selectedRx._id)}
+                        disabled={actionLoading}
+                        className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-widest mt-2 hover:underline"
+                      >
+                        Delete Permanently
                       </button>
                     </>
                   ) : (
